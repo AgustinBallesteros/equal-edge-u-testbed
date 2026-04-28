@@ -1293,9 +1293,10 @@ function DashboardScreen({
   // "Due Today" counts cards (not subtasks) that aren't fully done yet.
   // Cards not yet in progressMap haven't been touched → still incomplete.
   const dayData = DAY_CONTENT[activeDay];
-  const totalCards = dayData?.anytime.length ?? 0;
-  const completedCards = Object.values(progressMap).filter(
-    ({ done, total }) => total > 0 && done === total
+  const anytimeIds = new Set(dayData?.anytime.map((c) => c.id) ?? []);
+  const totalCards = anytimeIds.size;
+  const completedCards = Object.entries(progressMap).filter(
+    ([id, { done, total }]) => anytimeIds.has(id) && total > 0 && done === total
   ).length;
   const dueToday = totalCards - completedCards;
 
