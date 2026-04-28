@@ -143,19 +143,22 @@ function Header({
 
       {/* Right side: Today jump + view picker */}
       <div className="flex items-center gap-2" style={{ marginTop: 4 }}>
-        {/* Jump-to-today button — only in 3-day view when today is out of window */}
+        {/* Jump-to-today icon button — always shown in 3-day view */}
         {showTodayBtn && (
           <div
             onClick={onTodayJump}
             style={{
-              height: 34, borderRadius: 10, paddingLeft: 12, paddingRight: 12,
-              background: BLUE, color: "#fff",
-              display: "flex", alignItems: "center",
+              width: 34, height: 34, borderRadius: 10,
+              background: "#F2F2F2",
+              display: "flex", alignItems: "center", justifyContent: "center",
               cursor: "pointer", userSelect: "none",
-              fontSize: 13, fontWeight: 500,
+              flexShrink: 0,
             }}
           >
-            Today
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M20 10.2H4M7.11111 21C5.61764 21 6.02646 21 5.45603 20.7057C4.95426 20.4469 4.54631 20.0338 4.29065 19.5258C4 18.9482 4 18.1921 4 16.68V9.12C4 7.60786 4 6.85179 4.29065 6.27423C4.54631 5.76619 4.95426 5.35314 5.45603 5.09428C6.02646 4.8 6.77319 4.8 8.26667 4.8H15.7333C17.2268 4.8 17.9735 4.8 18.544 5.09428C19.0457 5.35314 19.4537 5.76619 19.7094 6.27423C20 6.85179 20 7.60786 20 9.12V16.68C20 18.1921 20 18.9482 19.7094 19.5258C19.4537 20.0338 19.0457 20.4469 18.544 20.7057C17.9735 21 18.3824 21 16.8889 21M15.5556 3V6.6M8.44444 3V6.6" stroke="#242424" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M10 18.4286L12 21M12 21L14 18.4286M12 21V15" stroke="#242424" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
           </div>
         )}
 
@@ -1513,17 +1516,18 @@ function CompactTaskCard({
         <span className="font-medium text-black flex-1" style={{ fontSize: 10.5, lineHeight: "1.35" }}>
           {title}
         </span>
+        {/* Circle checkbox — same style as Day view subtask circles */}
         <div
           style={{
-            width: 14, height: 14, borderRadius: 4, flexShrink: 0, marginLeft: 4,
-            border: isChecked ? "none" : "1.5px solid #ccc",
+            width: 18, height: 18, borderRadius: "50%", flexShrink: 0, marginLeft: 4,
+            border: isChecked ? "none" : "2px solid rgba(0,0,0,0.18)",
             background: isChecked ? BLUE : "transparent",
             display: "flex", alignItems: "center", justifyContent: "center",
           }}
         >
           {isChecked && (
-            <svg width="8" height="6" viewBox="0 0 8 6" fill="none">
-              <path d="M1 3l2 2L7 1" stroke="white" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+            <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
+              <path d="M1 3.5l2.5 2.5L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           )}
         </div>
@@ -1546,26 +1550,52 @@ function CompactTimedCard({
   total: number;
 }) {
   const progress = total > 0 ? done / total : 0;
-  const circ = 2 * Math.PI * 8;
-  const offset = circ * (1 - progress);
+  const isChecked = total > 0 && done === total;
+  const trackH = 24;
+  const fillH = Math.round(trackH * Math.min(Math.max(progress, 0), 1));
 
   return (
     <div className="bg-white" style={{ boxShadow: CARD_SHADOW, borderRadius: 8, overflow: "hidden" }}>
-      <div className="flex items-center gap-1.5" style={{ minHeight: 44, padding: "6px 8px" }}>
-        {/* Mini circular progress */}
-        <svg width="22" height="22" viewBox="0 0 22 22" style={{ flexShrink: 0, transform: "rotate(-90deg)" }}>
-          <circle cx="11" cy="11" r="8" fill="none" stroke={avatarColor} strokeOpacity={0.25} strokeWidth={2.5} />
-          <circle cx="11" cy="11" r="5" fill={avatarColor} opacity={0.4} />
-          <circle
-            cx="11" cy="11" r="8" fill="none" stroke={avatarColor} strokeWidth={2.5}
-            strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={offset}
-            style={{ transition: `stroke-dashoffset ${MS.dProgress} ${MS.eOut}` }}
+      <div
+        className="flex items-center"
+        style={{ minHeight: 44, position: "relative", paddingLeft: 17, paddingRight: 8, paddingTop: 5, paddingBottom: 5 }}
+      >
+        {/* Linear progress bar — same pattern as CompactTaskCard */}
+        <div
+          style={{
+            position: "absolute", left: 6, top: "50%", transform: "translateY(-50%)",
+            width: 3, height: trackH, borderRadius: 2,
+            background: `color-mix(in srgb, ${avatarColor} 25%, transparent)`,
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute", bottom: 0, left: 0, right: 0,
+              height: `${fillH}px`, borderRadius: 2, background: avatarColor,
+              transition: `height ${MS.dProgress} ${MS.eOut}`,
+            }}
           />
-        </svg>
-        {/* Text */}
-        <div className="flex-1 min-w-0">
+        </div>
+        {/* Title + time */}
+        <div className="flex-1 min-w-0" style={{ marginRight: 6 }}>
           <div className="font-medium text-black truncate" style={{ fontSize: 10.5, lineHeight: "1.3" }}>{title}</div>
           <div style={{ fontSize: 9.5, color: "#999", marginTop: 1 }}>{timeRange}</div>
+        </div>
+        {/* Circle checkbox */}
+        <div
+          style={{
+            width: 18, height: 18, borderRadius: "50%", flexShrink: 0,
+            border: isChecked ? "none" : "2px solid rgba(0,0,0,0.18)",
+            background: isChecked ? BLUE : "transparent",
+            display: "flex", alignItems: "center", justifyContent: "center",
+          }}
+        >
+          {isChecked && (
+            <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
+              <path d="M1 3.5l2.5 2.5L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
         </div>
       </div>
     </div>
@@ -1590,12 +1620,19 @@ function DayColumn({
   const isToday = dayId === currentDay;
 
   const anytime = day?.anytime ?? [];
-  const planned = (day?.planned ?? []).filter((p): p is TimedEntry => p.kind === "timed");
+  const planned = day?.planned ?? []; // ALL entries including GapEntry
 
   const visibleAnytime = anytime.slice(0, 3);
   const extraAnytime = Math.max(0, anytime.length - 3);
 
-  // Ring: sum all tracked cards for this day
+  // Blue dot: any anytime card incomplete
+  const anytimeIds = new Set(anytime.map((t) => t.id));
+  const completedCount = Object.entries(cardProgressMap).filter(
+    ([id, { done, total }]) => anytimeIds.has(id) && total > 0 && done === total
+  ).length;
+  const hasIncomplete = anytime.length > 0 && completedCount < anytime.length;
+
+  // Ring: sum all tracked cards
   const { rDone, rTotal } = Object.values(cardProgressMap).reduce(
     (acc, e) => ({ rDone: acc.rDone + e.done, rTotal: acc.rTotal + e.total }),
     { rDone: 0, rTotal: 0 }
@@ -1606,7 +1643,7 @@ function DayColumn({
     <div
       style={{
         flex: 1, minWidth: 0,
-        borderRight: showDivider ? "1px solid rgba(0,0,0,0.07)" : "none",
+        borderRight: showDivider ? "1px solid rgba(0,0,0,0.08)" : "none",
         display: "flex", flexDirection: "column",
       }}
     >
@@ -1626,12 +1663,18 @@ function DayColumn({
       </div>
 
       {/* Content */}
-      <div style={{ flex: 1, padding: "0 6px", paddingBottom: 16 }}>
-        {/* Anytime */}
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 9, fontWeight: 700, color: "#bbb", letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 5, paddingLeft: 2 }}>
-            Anytime
+      <div style={{ flex: 1, padding: "0 5px", paddingBottom: 16, display: "flex", flexDirection: "column", gap: 6 }}>
+
+        {/* ── Anytime white card ── */}
+        <div className="bg-white" style={{ boxShadow: CARD_SHADOW, borderRadius: 10, padding: "8px 7px" }}>
+          {/* Label row */}
+          <div className="flex items-center gap-1" style={{ marginBottom: 6 }}>
+            <span style={{ fontSize: 10, fontWeight: 600, color: "#888" }}>Anytime</span>
+            {hasIncomplete && (
+              <div style={{ width: 5, height: 5, borderRadius: "50%", background: BLUE, flexShrink: 0 }} />
+            )}
           </div>
+          {/* Cards */}
           <div className="flex flex-col gap-1.5">
             {visibleAnytime.map((c) => {
               const e = cardProgressMap[c.id];
@@ -1654,14 +1697,30 @@ function DayColumn({
           </div>
         </div>
 
-        {/* Scheduled */}
+        {/* ── Scheduled white card ── */}
         {planned.length > 0 && (
-          <div>
-            <div style={{ fontSize: 9, fontWeight: 700, color: "#bbb", letterSpacing: "0.07em", textTransform: "uppercase", marginBottom: 5, paddingLeft: 2 }}>
+          <div className="bg-white" style={{ boxShadow: CARD_SHADOW, borderRadius: 10, padding: "8px 7px" }}>
+            <div style={{ fontSize: 10, fontWeight: 600, color: "#888", marginBottom: 6 }}>
               Scheduled
             </div>
             <div className="flex flex-col gap-1.5">
               {planned.map((c) => {
+                if (c.kind === "gap") {
+                  // Inline compact gap bar (no mx-4 margins)
+                  return (
+                    <div
+                      key={c.id}
+                      className="flex items-center justify-center"
+                      style={{
+                        height: 18, borderRadius: 4,
+                        backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,0.06) 3px, rgba(0,0,0,0.06) 6px)",
+                        backgroundColor: "#F5F5F5",
+                      }}
+                    >
+                      <span style={{ fontSize: 8.5, color: "#aaa" }}>{c.label}</span>
+                    </div>
+                  );
+                }
                 const e = cardProgressMap[c.id];
                 const defaultTotal = c.tasks && c.tasks.length > 0 ? c.tasks.length : 1;
                 return (
@@ -1685,23 +1744,56 @@ function DayColumn({
 
 // ─── 3-Day view ───────────────────────────────────────────────────────────────
 
+const TD_ANIM_MS = 260; // slide animation duration
+
 function ThreeDayView({
   start,
   onStartChange,
   currentDay,
   progressMaps,
 }: {
-  start: number; // 1–5, first day id of the 3-day window
+  start: number; // page-aligned: 1, 4, or 7
   onStartChange: (s: number) => void;
   currentDay: number;
   progressMaps: Record<number, Record<string, { done: number; total: number }>>;
 }) {
+  // Tracks what's currently rendered vs. what's animating out
+  const [visibleStart, setVisibleStart] = useState(start);
+  const [exitStart,    setExitStart]    = useState<number | null>(null);
+  const [slideDir,     setSlideDir]     = useState<"left" | "right" | null>(null);
+  const animTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // React to `start` changes from the parent (swipe or Today-jump)
+  useEffect(() => {
+    if (start === visibleStart) return;
+    const dir = start > visibleStart ? "left" : "right";
+
+    if (animTimer.current) clearTimeout(animTimer.current);
+
+    setExitStart(visibleStart);
+    setSlideDir(dir);
+    setVisibleStart(start);
+
+    animTimer.current = setTimeout(() => {
+      setExitStart(null);
+      setSlideDir(null);
+    }, TD_ANIM_MS + 20); // slight buffer
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [start]);
+
+  // Swipe detection — navigate in steps of 3 (full page)
   const swipe = useRef({ startX: 0, startY: 0, active: false });
-  const days = [start, start + 1, start + 2];
+  const MAX_PAGE_START = 7; // last valid page start (day 7)
+
+  const getDays = (s: number) =>
+    [s, s + 1, s + 2].filter((d) => d >= 1 && d <= 7);
+
+  const slideInAnim  = slideDir === "left"  ? "tdSlideInRight"  : "tdSlideInLeft";
+  const slideOutAnim = slideDir === "left"  ? "tdSlideOutLeft"  : "tdSlideOutRight";
 
   return (
     <div
-      style={{ display: "flex", paddingBottom: 100 }}
+      style={{ position: "relative", overflow: "hidden", paddingBottom: 100 }}
       onPointerDown={(e) => { swipe.current = { startX: e.clientX, startY: e.clientY, active: true }; }}
       onPointerUp={(e) => {
         if (!swipe.current.active) return;
@@ -1709,21 +1801,56 @@ function ThreeDayView({
         const dx = e.clientX - swipe.current.startX;
         const dy = e.clientY - swipe.current.startY;
         if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
-          if (dx < 0 && start < 5) onStartChange(Math.min(5, start + 1));
-          else if (dx > 0 && start > 1) onStartChange(Math.max(1, start - 1));
+          if (dx < 0) {
+            // Swipe left → next page
+            const next = start + 3;
+            if (next <= MAX_PAGE_START) onStartChange(next);
+          } else {
+            // Swipe right → previous page
+            const prev = start - 3;
+            if (prev >= 1) onStartChange(prev);
+          }
         }
       }}
       onPointerCancel={() => { swipe.current.active = false; }}
     >
-      {days.map((dayId, i) => (
-        <DayColumn
-          key={dayId}
-          dayId={dayId}
-          currentDay={currentDay}
-          cardProgressMap={progressMaps[dayId] ?? {}}
-          showDivider={i < 2}
-        />
-      ))}
+      {/* Exiting panel — absolutely placed, slides out via keyframe */}
+      {exitStart !== null && slideDir && (
+        <div
+          style={{
+            position: "absolute", top: 0, left: 0, right: 0,
+            display: "flex",
+            animation: `${slideOutAnim} ${TD_ANIM_MS}ms ${MS.eOut} both`,
+          }}
+        >
+          {getDays(exitStart).map((dayId, i, arr) => (
+            <DayColumn
+              key={dayId} dayId={dayId} currentDay={currentDay}
+              cardProgressMap={progressMaps[dayId] ?? {}}
+              showDivider={i < arr.length - 1}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Entering panel — remounts on each navigation, slides in via keyframe */}
+      <div
+        key={visibleStart}
+        style={{
+          display: "flex",
+          animation: slideDir
+            ? `${slideInAnim} ${TD_ANIM_MS}ms ${MS.eOut} both`
+            : undefined,
+        }}
+      >
+        {getDays(visibleStart).map((dayId, i, arr) => (
+          <DayColumn
+            key={dayId} dayId={dayId} currentDay={currentDay}
+            cardProgressMap={progressMaps[dayId] ?? {}}
+            showDivider={i < arr.length - 1}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -1910,10 +2037,8 @@ function DashboardScreen({
   // 3-day window: first day id in the window (1–5)
   const [threeDayStart, setThreeDayStart] = useState<number>(1);
 
-  // Show "Today" button in 3-day view when CURRENT_DAY is outside the visible window
-  const showTodayBtn =
-    view === "3day" &&
-    (CURRENT_DAY < threeDayStart || CURRENT_DAY > threeDayStart + 2);
+  // Today icon button always visible in 3-day view
+  const showTodayBtn = view === "3day";
 
   const switchView = useCallback((v: CalendarView) => {
     setView(v);
@@ -1998,7 +2123,13 @@ function DashboardScreen({
 
   return (
     <div id="dashboard-screen" style={{ width, height, position: "relative", fontFamily: "var(--font-inter)", overflow: "hidden" }}>
-      <style>{`#scroll-content::-webkit-scrollbar { display: none; }`}</style>
+      <style>{`
+        #scroll-content::-webkit-scrollbar { display: none; }
+        @keyframes tdSlideInRight  { from { transform: translateX(100%); } to { transform: translateX(0); } }
+        @keyframes tdSlideInLeft   { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+        @keyframes tdSlideOutLeft  { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+        @keyframes tdSlideOutRight { from { transform: translateX(0); } to { transform: translateX(100%); } }
+      `}</style>
 
       {/* ── Fixed header ── */}
       <div
@@ -2013,8 +2144,8 @@ function DashboardScreen({
           onViewChange={switchView}
           showTodayBtn={showTodayBtn}
           onTodayJump={() => {
-            // Jump to the window that contains CURRENT_DAY
-            setThreeDayStart(Math.min(5, Math.max(1, CURRENT_DAY)));
+            // Page 0 (start=1) contains CURRENT_DAY=2
+            setThreeDayStart(1);
           }}
         />
         {/* WeekStrip only shown in Day view */}
