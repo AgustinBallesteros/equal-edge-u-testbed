@@ -145,51 +145,64 @@ function DayRing({ progress }: { progress: number }) {
   );
 }
 
-function WeekStrip({ progress = 0 }: { progress?: number }) {
-  const days = [
-    { label: "S", num: "1", active: false },
-    { label: "M", num: "2", active: true  },
-    { label: "T", num: "3", active: false },
-    { label: "W", num: "4", active: false },
-    { label: "T", num: "5", active: false },
-    { label: "F", num: "6", active: false },
-    { label: "S", num: "7", active: false },
-  ];
+const WEEK_DAYS = [
+  { label: "S", num: "1", id: 1 },
+  { label: "M", num: "2", id: 2 },
+  { label: "T", num: "3", id: 3 },
+  { label: "W", num: "4", id: 4 },
+  { label: "T", num: "5", id: 5 },
+  { label: "F", num: "6", id: 6 },
+  { label: "S", num: "7", id: 7 },
+];
 
+function WeekStrip({
+  activeDay = 2,
+  dayProgressMap = {},
+  onDayChange,
+}: {
+  activeDay?: number;
+  dayProgressMap?: Record<number, number>;
+  onDayChange?: (day: number) => void;
+}) {
   return (
     <div
       id="week-strip"
       className="flex items-center justify-between bg-white border-b border-black/5"
       style={{ paddingLeft: 14, paddingRight: 14, paddingTop: 8, paddingBottom: 8 }}
     >
-      {days.map((d) => (
-        <div
-          key={d.label}
-          id={`day-${d.label.toLowerCase()}`}
-          className="flex flex-col items-center justify-center"
-          style={{
-            width: 44,
-            height: 52,
-            borderRadius: 12,
-            background: d.active ? "#F4F4F4" : "transparent",
-            position: "relative",
-          }}
-        >
-          {d.active && <DayRing progress={progress} />}
-          <span
-            className="font-medium"
-            style={{ fontSize: 12, color: d.active ? BLUE : "#000", lineHeight: "1.2" }}
+      {WEEK_DAYS.map((d) => {
+        const isActive = d.id === activeDay;
+        const prog = dayProgressMap[d.id] ?? 0;
+        return (
+          <div
+            key={d.id}
+            onClick={() => onDayChange?.(d.id)}
+            className="flex flex-col items-center justify-center"
+            style={{
+              width: 44,
+              height: 52,
+              borderRadius: 12,
+              background: isActive ? "#F4F4F4" : "transparent",
+              position: "relative",
+              cursor: "pointer",
+            }}
           >
-            {d.label}
-          </span>
-          <span
-            className="font-medium"
-            style={{ fontSize: 13, color: d.active ? BLUE : "#585858", marginTop: 2 }}
-          >
-            {d.num}
-          </span>
-        </div>
-      ))}
+            {prog > 0 && <DayRing progress={prog} />}
+            <span
+              className="font-medium"
+              style={{ fontSize: 12, color: isActive ? BLUE : "#000", lineHeight: "1.2" }}
+            >
+              {d.label}
+            </span>
+            <span
+              className="font-medium"
+              style={{ fontSize: 13, color: isActive ? BLUE : "#585858", marginTop: 2 }}
+            >
+              {d.num}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -264,17 +277,21 @@ function TaskCard({
   title,
   accentColor,
   tasks = [],
+  initialDoneMap,
+  initialChecked = false,
   onProgressChange,
 }: {
   id: string;
   title: string;
   accentColor: string;
   tasks?: SubTask[];
+  initialDoneMap?: Record<number, boolean>;
+  initialChecked?: boolean;
   onProgressChange?: (id: string, done: number, total: number) => void;
 }) {
   const [expanded,      setExpanded]      = useState(false);
-  const [doneMap,       setDoneMap]       = useState<Record<number, boolean>>({});
-  const [simpleChecked, setSimpleChecked] = useState(false); // used when no tasks
+  const [doneMap,       setDoneMap]       = useState<Record<number, boolean>>(() => initialDoneMap ?? {});
+  const [simpleChecked, setSimpleChecked] = useState(initialChecked); // used when no tasks
 
   const total     = tasks.length;
   const doneCount = Object.values(doneMap).filter(Boolean).length;
@@ -528,6 +545,7 @@ function TimedCard({
   timeRange,
   avatarColor,
   tasks = [],
+  initialDoneMap,
   onProgressChange,
 }: {
   id: string;
@@ -535,10 +553,11 @@ function TimedCard({
   timeRange: string;
   avatarColor: string;
   tasks?: SubTask[];
+  initialDoneMap?: Record<number, boolean>;
   onProgressChange?: (id: string, done: number, total: number) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const [doneMap,  setDoneMap]  = useState<Record<number, boolean>>({});
+  const [doneMap,  setDoneMap]  = useState<Record<number, boolean>>(() => initialDoneMap ?? {});
 
   const total     = tasks.length;
   const doneCount = Object.values(doneMap).filter(Boolean).length;
@@ -818,6 +837,61 @@ function IPhoneShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+// ─── Per-day task data ────────────────────────────────────────────────────────
+// Sunday (day 1) — pre-seeded to ~75% completion via initialDoneMap / initialChecked.
+// Total: 11 done / 15 tasks = 73.3 % ≈ 75 %
+const SUN_ANYTIME = [
+  {
+    id: "sun-journal", title: "Journal morning thoughts", accentColor: "#A78BFA",
+    tasks: [
+      { label: "Write 3 things you're grateful for",   minutes: 5  },
+      { label: "Reflect on yesterday's wins",          minutes: 5  },
+      { label: "Set an intention for the week",        minutes: 5  },
+    ] as SubTask[],
+    initialDoneMap: { 0: true, 1: true } as Record<number, boolean>, // 2 / 3
+  },
+  {
+    id: "sun-walk", title: "Evening walk", accentColor: "#34D399",
+    tasks: [] as SubTask[],
+    initialDoneMap: undefined,
+    initialChecked: true, // 1 / 1
+  },
+  {
+    id: "sun-reading", title: "Catch up on reading", accentColor: "#F59E0B",
+    tasks: [
+      { label: "Read assigned chapter",                minutes: 20 },
+      { label: "Take brief notes",                     minutes: 10 },
+      { label: "Look up unfamiliar terms",             minutes: 5  },
+      { label: "Review chapter summary",               minutes: 5  },
+    ] as SubTask[],
+    initialDoneMap: { 0: true, 1: true, 2: true } as Record<number, boolean>, // 3 / 4
+  },
+];
+
+const SUN_PLANNED = [
+  {
+    id: "sun-yoga", title: "Morning yoga", timeRange: "8:00AM → 8:45 AM",
+    avatarColor: "#F472B6",
+    tasks: [
+      { label: "Warm-up stretches",                    minutes: 5  },
+      { label: "Sun salutation flow",                  minutes: 15 },
+      { label: "Core and balance work",                minutes: 15 },
+      { label: "Cool-down and breathing",              minutes: 10 },
+    ] as SubTask[],
+    initialDoneMap: { 0: true, 1: true, 2: true } as Record<number, boolean>, // 3 / 4
+  },
+  {
+    id: "sun-grocery", title: "Grocery run", timeRange: "11:00AM → 12:00 PM",
+    avatarColor: "#4ADE80",
+    tasks: [
+      { label: "Write shopping list",                  minutes: 5  },
+      { label: "Check pantry for stock",               minutes: 5  },
+      { label: "Drive to store and shop",              minutes: 40 },
+    ] as SubTask[],
+    initialDoneMap: { 0: true, 1: true } as Record<number, boolean>, // 2 / 3
+  },
+];
+
 // ─── Dashboard Screen ─────────────────────────────────────────────────────────
 
 function DashboardScreen({
@@ -843,7 +917,12 @@ function DashboardScreen({
     ? `${(plannedRef.current?.scrollHeight ?? 800) + 400}px`
     : "0px";
 
-  // Aggregate task progress from all cards { id → { done, total } }
+  // Active day (default Monday = 2) and per-day progress tracking
+  const [activeDay, setActiveDay] = useState<number>(2);
+  // Frozen progress for non-active days; Sunday pre-seeded at 75 %
+  const [savedDayProgress, setSavedDayProgress] = useState<Record<number, number>>({ 1: 0.75 });
+
+  // Live progress for the currently active day
   const [progressMap, setProgressMap] = useState<Record<string, { done: number; total: number }>>({});
   const handleProgressChange = useCallback((id: string, done: number, total: number) => {
     setProgressMap((prev) => {
@@ -857,7 +936,19 @@ function DashboardScreen({
     (acc, { done, total }) => ({ totalDone: acc.totalDone + done, totalAll: acc.totalAll + total }),
     { totalDone: 0, totalAll: 0 }
   );
-  const dayProgress = totalAll > 0 ? totalDone / totalAll : 0;
+  const liveProgress = totalAll > 0 ? totalDone / totalAll : 0;
+
+  // Map passed to WeekStrip: live for active day, frozen snapshot for others
+  const fullProgressMap: Record<number, number> = { ...savedDayProgress, [activeDay]: liveProgress };
+
+  const switchDay = useCallback((day: number) => {
+    if (day === activeDay) return;
+    setSavedDayProgress((prev) => ({ ...prev, [activeDay]: liveProgress }));
+    setProgressMap({});          // reset live map for the new day
+    setActiveDay(day);
+    scrollRef.current?.scrollTo({ top: 0 });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeDay, liveProgress]);
 
   // Drag state stored in a ref so it never causes re-renders
   const drag = useRef({ active: false, startY: 0, startScroll: 0 });
@@ -903,7 +994,11 @@ function DashboardScreen({
         }}
       >
         <Header />
-        <WeekStrip progress={dayProgress} />
+        <WeekStrip
+          activeDay={activeDay}
+          dayProgressMap={fullProgressMap}
+          onDayChange={switchDay}
+        />
       </div>
 
       {/* Scrollable content — starts below the fixed header */}
@@ -951,47 +1046,70 @@ function DashboardScreen({
             }}
           >
           <div ref={anytimeRef} id="anytime-cards" className="flex flex-col gap-2" style={{ paddingBottom: 8 }}>
-            <TaskCard
-              id="card-biology-study"
-              title="Biology study"
-              accentColor="#7BC875"
-              onProgressChange={handleProgressChange}
-              tasks={[
-                { label: "Review chapter notes",              minutes: 15 },
-                { label: "Read assigned textbook pages",      minutes: 20 },
-                { label: "Watch lecture recap video",         minutes: 10 },
-                { label: "Solve practice problems",           minutes: 15 },
-                { label: "Review diagrams and figures",       minutes: 10 },
-                { label: "Write key term definitions",        minutes: 10 },
-                { label: "Complete practice quiz",            minutes: 15 },
-                { label: "Review quiz answers",               minutes: 5  },
-              ]}
-            />
-            <TaskCard
-              id="card-math-prep"
-              title="Math prep"
-              accentColor="#D1AB30"
-              onProgressChange={handleProgressChange}
-              tasks={[
-                { label: "Review class notes",                minutes: 10 },
-                { label: "Read textbook section",             minutes: 15 },
-                { label: "Watch tutorial video",              minutes: 10 },
-                { label: "Solve example problems",            minutes: 20 },
-                { label: "Check answers and correct errors",  minutes: 10 },
-                { label: "Complete assigned exercises",       minutes: 25 },
-                { label: "Review formulas and theorems",      minutes: 10 },
-                { label: "Practice mental math",              minutes: 5  },
-                { label: "Prepare questions for tutor",       minutes: 5  },
-                { label: "Summarize key concepts",            minutes: 5  },
-                { label: "Test yourself with flashcards",     minutes: 10 },
-              ]}
-            />
-            <TaskCard
-              id="card-reading"
-              title="15 min reading"
-              accentColor="#A6A6A6"
-              onProgressChange={handleProgressChange}
-            />
+            {activeDay === 2 ? (
+              <>
+                <TaskCard
+                  id="card-biology-study"
+                  title="Biology study"
+                  accentColor="#7BC875"
+                  onProgressChange={handleProgressChange}
+                  tasks={[
+                    { label: "Review chapter notes",              minutes: 15 },
+                    { label: "Read assigned textbook pages",      minutes: 20 },
+                    { label: "Watch lecture recap video",         minutes: 10 },
+                    { label: "Solve practice problems",           minutes: 15 },
+                    { label: "Review diagrams and figures",       minutes: 10 },
+                    { label: "Write key term definitions",        minutes: 10 },
+                    { label: "Complete practice quiz",            minutes: 15 },
+                    { label: "Review quiz answers",               minutes: 5  },
+                  ]}
+                />
+                <TaskCard
+                  id="card-math-prep"
+                  title="Math prep"
+                  accentColor="#D1AB30"
+                  onProgressChange={handleProgressChange}
+                  tasks={[
+                    { label: "Review class notes",                minutes: 10 },
+                    { label: "Read textbook section",             minutes: 15 },
+                    { label: "Watch tutorial video",              minutes: 10 },
+                    { label: "Solve example problems",            minutes: 20 },
+                    { label: "Check answers and correct errors",  minutes: 10 },
+                    { label: "Complete assigned exercises",       minutes: 25 },
+                    { label: "Review formulas and theorems",      minutes: 10 },
+                    { label: "Practice mental math",              minutes: 5  },
+                    { label: "Prepare questions for tutor",       minutes: 5  },
+                    { label: "Summarize key concepts",            minutes: 5  },
+                    { label: "Test yourself with flashcards",     minutes: 10 },
+                  ]}
+                />
+                <TaskCard
+                  id="card-reading"
+                  title="15 min reading"
+                  accentColor="#A6A6A6"
+                  onProgressChange={handleProgressChange}
+                />
+              </>
+            ) : activeDay === 1 ? (
+              <>
+                {SUN_ANYTIME.map((c) => (
+                  <TaskCard
+                    key={c.id}
+                    id={c.id}
+                    title={c.title}
+                    accentColor={c.accentColor}
+                    tasks={c.tasks}
+                    initialDoneMap={c.initialDoneMap}
+                    initialChecked={"initialChecked" in c ? c.initialChecked : false}
+                    onProgressChange={handleProgressChange}
+                  />
+                ))}
+              </>
+            ) : (
+              <div style={{ padding: "24px 16px", textAlign: "center", color: "#bbb", fontSize: 13 }}>
+                No anytime tasks for this day.
+              </div>
+            )}
           </div>
           </div>
 
@@ -1012,58 +1130,81 @@ function DashboardScreen({
             }}
           >
           <div ref={plannedRef} id="planned-cards" className="flex flex-col gap-2" style={{ paddingBottom: 8 }}>
-            <TimedCard
-              id="card-go-for-a-run"
-              title="Go for a run"
-              timeRange="8:00AM → 9:00 AM"
-              avatarColor="#7BC875"
-              onProgressChange={handleProgressChange}
-              tasks={[
-                { label: "Put on running shoes and gear",            minutes: 4  },
-                { label: "Check route conditions and set a distance goal", minutes: 5 },
-                { label: "Start with an easy trail jog",             minutes: 20 },
-                { label: "Rehydrate with a few sips of water",       minutes: 5  },
-                { label: "Push effort on bleachers",                 minutes: 16 },
-                { label: "Maintain steady breathing and form",       minutes: null },
-                { label: "Finish with a short recovery walk",        minutes: 10 },
-              ]}
-            />
-            <GapBar id="gap-1hr" label="1:00hr gap" />
-            <TimedCard
-              id="card-biology-class"
-              title="Biology class"
-              timeRange="10:00AM → 11:00 AM"
-              avatarColor="#558BF7"
-              onProgressChange={handleProgressChange}
-              tasks={[
-                { label: "Review last lecture notes",                minutes: 10 },
-                { label: "Complete assigned reading",                minutes: 20 },
-                { label: "Prepare questions for professor",          minutes: 5  },
-                { label: "Participate in class discussion",          minutes: null },
-                { label: "Write a brief post-class summary",         minutes: 10 },
-                { label: "Schedule office hours if needed",          minutes: 5  },
-                { label: "Update study calendar",                    minutes: 5  },
-                { label: "Start homework outline",                   minutes: 5  },
-              ]}
-            />
-            <GapBar id="gap-30min" label="30min gap" />
-            <TimedCard
-              id="card-clean-dorm"
-              title="Clean dorm room"
-              timeRange="11:30AM → 12:00 PM"
-              avatarColor="#A6A6A6"
-              onProgressChange={handleProgressChange}
-              tasks={[
-                { label: "Clear desk and put away books",            minutes: 5  },
-                { label: "Make the bed",                             minutes: 3  },
-                { label: "Vacuum or sweep the floor",                minutes: 7  },
-                { label: "Take out the trash",                       minutes: 2  },
-                { label: "Wipe down surfaces",                       minutes: 5  },
-                { label: "Organize closet",                          minutes: 8  },
-                { label: "Do laundry",                               minutes: null },
-                { label: "Restock supplies",                         minutes: 5  },
-              ]}
-            />
+            {activeDay === 2 ? (
+              <>
+                <TimedCard
+                  id="card-go-for-a-run"
+                  title="Go for a run"
+                  timeRange="8:00AM → 9:00 AM"
+                  avatarColor="#7BC875"
+                  onProgressChange={handleProgressChange}
+                  tasks={[
+                    { label: "Put on running shoes and gear",            minutes: 4  },
+                    { label: "Check route conditions and set a distance goal", minutes: 5 },
+                    { label: "Start with an easy trail jog",             minutes: 20 },
+                    { label: "Rehydrate with a few sips of water",       minutes: 5  },
+                    { label: "Push effort on bleachers",                 minutes: 16 },
+                    { label: "Maintain steady breathing and form",       minutes: null },
+                    { label: "Finish with a short recovery walk",        minutes: 10 },
+                  ]}
+                />
+                <GapBar id="gap-1hr" label="1:00hr gap" />
+                <TimedCard
+                  id="card-biology-class"
+                  title="Biology class"
+                  timeRange="10:00AM → 11:00 AM"
+                  avatarColor="#558BF7"
+                  onProgressChange={handleProgressChange}
+                  tasks={[
+                    { label: "Review last lecture notes",                minutes: 10 },
+                    { label: "Complete assigned reading",                minutes: 20 },
+                    { label: "Prepare questions for professor",          minutes: 5  },
+                    { label: "Participate in class discussion",          minutes: null },
+                    { label: "Write a brief post-class summary",         minutes: 10 },
+                    { label: "Schedule office hours if needed",          minutes: 5  },
+                    { label: "Update study calendar",                    minutes: 5  },
+                    { label: "Start homework outline",                   minutes: 5  },
+                  ]}
+                />
+                <GapBar id="gap-30min" label="30min gap" />
+                <TimedCard
+                  id="card-clean-dorm"
+                  title="Clean dorm room"
+                  timeRange="11:30AM → 12:00 PM"
+                  avatarColor="#A6A6A6"
+                  onProgressChange={handleProgressChange}
+                  tasks={[
+                    { label: "Clear desk and put away books",            minutes: 5  },
+                    { label: "Make the bed",                             minutes: 3  },
+                    { label: "Vacuum or sweep the floor",                minutes: 7  },
+                    { label: "Take out the trash",                       minutes: 2  },
+                    { label: "Wipe down surfaces",                       minutes: 5  },
+                    { label: "Organize closet",                          minutes: 8  },
+                    { label: "Do laundry",                               minutes: null },
+                    { label: "Restock supplies",                         minutes: 5  },
+                  ]}
+                />
+              </>
+            ) : activeDay === 1 ? (
+              <>
+                {SUN_PLANNED.map((c) => (
+                  <TimedCard
+                    key={c.id}
+                    id={c.id}
+                    title={c.title}
+                    timeRange={c.timeRange}
+                    avatarColor={c.avatarColor}
+                    tasks={c.tasks}
+                    initialDoneMap={c.initialDoneMap}
+                    onProgressChange={handleProgressChange}
+                  />
+                ))}
+              </>
+            ) : (
+              <div style={{ padding: "24px 16px", textAlign: "center", color: "#bbb", fontSize: 13 }}>
+                No planned tasks for this day.
+              </div>
+            )}
           </div>
           </div>
         </div>
