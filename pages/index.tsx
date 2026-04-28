@@ -1479,28 +1479,30 @@ function CompactTaskCard({
   accentColor,
   done,
   total,
+  onToggle,
 }: {
   title: string;
   accentColor: string;
   done: number;
   total: number;
+  onToggle?: () => void;
 }) {
-  const progress = total > 0 ? done / total : done; // handles simple checked (done=1,total=1)
+  const progress  = total > 0 ? done / total : done;
   const isChecked = total > 0 && done === total;
-  const trackH = 24;
-  const fillH = Math.round(trackH * Math.min(Math.max(progress, 0), 1));
+  const trackH    = 36;
+  const fillH     = Math.round(trackH * Math.min(Math.max(progress, 0), 1));
 
   return (
     <div className="bg-white" style={{ boxShadow: CARD_SHADOW, borderRadius: 8, overflow: "hidden" }}>
       <div
         className="flex items-center"
-        style={{ minHeight: 38, position: "relative", paddingLeft: 17, paddingRight: 8, paddingTop: 5, paddingBottom: 5 }}
+        style={{ minHeight: 52, position: "relative", paddingLeft: 20, paddingRight: 12, paddingTop: 8, paddingBottom: 8 }}
       >
         {/* Progress bar */}
         <div
           style={{
-            position: "absolute", left: 6, top: "50%", transform: "translateY(-50%)",
-            width: 3, height: trackH, borderRadius: 2,
+            position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)",
+            width: 4, height: trackH, borderRadius: 2,
             background: `color-mix(in srgb, ${accentColor} 25%, transparent)`,
             overflow: "hidden",
           }}
@@ -1513,21 +1515,24 @@ function CompactTaskCard({
             }}
           />
         </div>
-        <span className="font-medium text-black flex-1" style={{ fontSize: 10.5, lineHeight: "1.35" }}>
+        <span className="font-bold text-black flex-1" style={{ fontSize: 14, lineHeight: "1.3" }}>
           {title}
         </span>
-        {/* Circle checkbox — same style as Day view subtask circles */}
+        {/* Tappable circle checkbox */}
         <div
+          onClick={(e) => { e.stopPropagation(); onToggle?.(); }}
           style={{
-            width: 18, height: 18, borderRadius: "50%", flexShrink: 0, marginLeft: 4,
+            width: 22, height: 22, borderRadius: "50%", flexShrink: 0, marginLeft: 8,
             border: isChecked ? "none" : "2px solid rgba(0,0,0,0.18)",
             background: isChecked ? BLUE : "transparent",
             display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer",
+            transition: `background ${MS.dCheck} ${MS.eOut}`,
           }}
         >
           {isChecked && (
-            <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
-              <path d="M1 3.5l2.5 2.5L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
+              <path d="M1 4.5l3 3L10 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           )}
         </div>
@@ -1542,29 +1547,31 @@ function CompactTimedCard({
   avatarColor,
   done,
   total,
+  onToggle,
 }: {
   title: string;
   timeRange: string;
   avatarColor: string;
   done: number;
   total: number;
+  onToggle?: () => void;
 }) {
-  const progress = total > 0 ? done / total : 0;
+  const progress  = total > 0 ? done / total : 0;
   const isChecked = total > 0 && done === total;
-  const trackH = 24;
-  const fillH = Math.round(trackH * Math.min(Math.max(progress, 0), 1));
+  const trackH    = 36;
+  const fillH     = Math.round(trackH * Math.min(Math.max(progress, 0), 1));
 
   return (
     <div className="bg-white" style={{ boxShadow: CARD_SHADOW, borderRadius: 8, overflow: "hidden" }}>
       <div
         className="flex items-center"
-        style={{ minHeight: 44, position: "relative", paddingLeft: 17, paddingRight: 8, paddingTop: 5, paddingBottom: 5 }}
+        style={{ minHeight: 60, position: "relative", paddingLeft: 20, paddingRight: 12, paddingTop: 8, paddingBottom: 8 }}
       >
-        {/* Linear progress bar — same pattern as CompactTaskCard */}
+        {/* Linear progress bar */}
         <div
           style={{
-            position: "absolute", left: 6, top: "50%", transform: "translateY(-50%)",
-            width: 3, height: trackH, borderRadius: 2,
+            position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)",
+            width: 4, height: trackH, borderRadius: 2,
             background: `color-mix(in srgb, ${avatarColor} 25%, transparent)`,
             overflow: "hidden",
           }}
@@ -1578,22 +1585,25 @@ function CompactTimedCard({
           />
         </div>
         {/* Title + time */}
-        <div className="flex-1 min-w-0" style={{ marginRight: 6 }}>
-          <div className="font-medium text-black truncate" style={{ fontSize: 10.5, lineHeight: "1.3" }}>{title}</div>
-          <div style={{ fontSize: 9.5, color: "#999", marginTop: 1 }}>{timeRange}</div>
+        <div className="flex-1 min-w-0" style={{ marginRight: 8 }}>
+          <div className="font-bold text-black" style={{ fontSize: 14, lineHeight: "1.3" }}>{title}</div>
+          <div style={{ fontSize: 12, color: "#999", marginTop: 2 }}>{timeRange}</div>
         </div>
-        {/* Circle checkbox */}
+        {/* Tappable circle checkbox */}
         <div
+          onClick={(e) => { e.stopPropagation(); onToggle?.(); }}
           style={{
-            width: 18, height: 18, borderRadius: "50%", flexShrink: 0,
+            width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
             border: isChecked ? "none" : "2px solid rgba(0,0,0,0.18)",
             background: isChecked ? BLUE : "transparent",
             display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer",
+            transition: `background ${MS.dCheck} ${MS.eOut}`,
           }}
         >
           {isChecked && (
-            <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
-              <path d="M1 3.5l2.5 2.5L8 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
+              <path d="M1 4.5l3 3L10 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           )}
         </div>
@@ -1608,11 +1618,13 @@ function DayColumn({
   dayId,
   currentDay,
   cardProgressMap,
+  onProgressChange,
   showDivider,
 }: {
   dayId: number;
   currentDay: number;
   cardProgressMap: Record<string, { done: number; total: number }>;
+  onProgressChange: (id: string, done: number, total: number) => void;
   showDivider: boolean;
 }) {
   const day = DAY_CONTENT[dayId];
@@ -1631,6 +1643,14 @@ function DayColumn({
     ([id, { done, total }]) => anytimeIds.has(id) && total > 0 && done === total
   ).length;
   const hasIncomplete = anytime.length > 0 && completedCount < anytime.length;
+
+  // Toggle a card: if all done → uncheck all; if not → check all
+  const makeToggle = (id: string, defaultTotal: number) => () => {
+    const e = cardProgressMap[id];
+    const total = e?.total ?? defaultTotal;
+    const done  = e?.done  ?? 0;
+    onProgressChange(id, done === total ? 0 : total, total);
+  };
 
   // Ring: sum all tracked cards
   const { rDone, rTotal } = Object.values(cardProgressMap).reduce(
@@ -1686,6 +1706,7 @@ function DayColumn({
                   accentColor={c.accentColor}
                   done={e?.done ?? 0}
                   total={e?.total ?? defaultTotal}
+                  onToggle={makeToggle(c.id, defaultTotal)}
                 />
               );
             })}
@@ -1731,6 +1752,7 @@ function DayColumn({
                     avatarColor={c.avatarColor}
                     done={e?.done ?? 0}
                     total={e?.total ?? defaultTotal}
+                    onToggle={makeToggle(c.id, defaultTotal)}
                   />
                 );
               })}
@@ -1751,11 +1773,13 @@ function ThreeDayView({
   onStartChange,
   currentDay,
   progressMaps,
+  progressHandlers,
 }: {
   start: number; // page-aligned: 1, 4, or 7
   onStartChange: (s: number) => void;
   currentDay: number;
   progressMaps: Record<number, Record<string, { done: number; total: number }>>;
+  progressHandlers: Record<number, (id: string, done: number, total: number) => void>;
 }) {
   // Tracks what's currently rendered vs. what's animating out
   const [visibleStart, setVisibleStart] = useState(start);
@@ -1827,6 +1851,7 @@ function ThreeDayView({
             <DayColumn
               key={dayId} dayId={dayId} currentDay={currentDay}
               cardProgressMap={progressMaps[dayId] ?? {}}
+              onProgressChange={progressHandlers[dayId]}
               showDivider={i < arr.length - 1}
             />
           ))}
@@ -1847,6 +1872,7 @@ function ThreeDayView({
           <DayColumn
             key={dayId} dayId={dayId} currentDay={currentDay}
             cardProgressMap={progressMaps[dayId] ?? {}}
+            onProgressChange={progressHandlers[dayId]}
             showDivider={i < arr.length - 1}
           />
         ))}
@@ -2204,6 +2230,7 @@ function DashboardScreen({
             onStartChange={setThreeDayStart}
             currentDay={CURRENT_DAY}
             progressMaps={progressMaps}
+            progressHandlers={progressHandlers}
           />
         )}
 
