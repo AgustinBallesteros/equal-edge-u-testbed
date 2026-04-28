@@ -258,11 +258,11 @@ function SectionHeader({
   );
 }
 
-function DueTodayBadge() {
+function DueTodayBadge({ count }: { count: number }) {
   return (
     <div className="flex items-center gap-1">
       <div style={{ width: 7, height: 7, borderRadius: "50%", background: BLUE }} />
-      <span className="font-medium" style={{ fontSize: 12, color: BLUE }}>Due Today (1)</span>
+      <span className="font-medium" style={{ fontSize: 12, color: BLUE }}>Due Today ({count})</span>
     </div>
   );
 }
@@ -1386,7 +1386,7 @@ function DashboardScreen({
                 <SectionHeader
                   id="anytime-header"
                   title="Anytime"
-                  badge={<DueTodayBadge />}
+                  badge={<DueTodayBadge count={totalAll - totalDone} />}
                   expanded={anytimeExpanded}
                   onToggle={() => setAnytimeExpanded((v) => !v)}
                 />
