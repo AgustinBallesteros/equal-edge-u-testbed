@@ -2059,7 +2059,7 @@ function MonthGrid({
   };
 
   return (
-    <div style={{ padding: "0 8px" }}>
+    <div style={{ padding: "0 10px" }}>
       {/* Day-of-week labels */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3, marginBottom: 4 }}>
         {DOW_LABELS.map((lbl, i) => (
