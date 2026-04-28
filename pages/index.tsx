@@ -241,8 +241,14 @@ function DayRing({ progress }: { progress: number }) {
       viewBox={`0 0 ${W + pad * 2} ${H + pad * 2}`}
       style={{ position: "absolute", top: -pad, left: -pad, pointerEvents: "none" }}
     >
-      {/* Faint full track */}
-      <path d={d} fill="none" stroke={BLUE} strokeOpacity={0.18} strokeWidth={SW} />
+      {/* Faint full track — fades with the arc so unmounting isn't needed */}
+      <path
+        d={d} fill="none" stroke={BLUE} strokeWidth={SW}
+        style={{
+          strokeOpacity: displayProg > 0 ? 0.18 : 0,
+          transition: `stroke-opacity ${MS.dProgress} ${MS.eOut}`,
+        }}
+      />
       {/* Progress arc */}
       <path
         d={d}
@@ -306,7 +312,7 @@ function WeekStrip({
               cursor: "pointer",
             }}
           >
-            {prog > 0 && <DayRing progress={prog} />}
+            <DayRing progress={prog} />
             <span className="font-medium" style={{ fontSize: 12, color: textColor, lineHeight: "1.2" }}>
               {d.label}
             </span>
