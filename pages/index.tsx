@@ -108,11 +108,15 @@ function Header({
   onViewChange,
   showTodayBtn = false,
   onTodayJump,
+  monthName = "April",
+  year = "2026",
 }: {
   view: CalendarView;
   onViewChange: (v: CalendarView) => void;
   showTodayBtn?: boolean;
   onTodayJump?: () => void;
+  monthName?: string;
+  year?: string;
 }) {
   const [dropOpen, setDropOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -137,8 +141,8 @@ function Header({
     >
       {/* Month / Year */}
       <div>
-        <div className="font-bold text-black" style={{ fontSize: 26, lineHeight: "1.1" }}>April</div>
-        <div className="font-normal text-black/50" style={{ fontSize: 13, marginTop: 1 }}>2026</div>
+        <div className="font-bold text-black" style={{ fontSize: 26, lineHeight: "1.1" }}>{monthName}</div>
+        <div className="font-normal text-black/50" style={{ fontSize: 13, marginTop: 1 }}>{year}</div>
       </div>
 
       {/* Right side: Today jump + view picker */}
@@ -1953,20 +1957,42 @@ function ThreeDayView({
 
 // ─── Month view ───────────────────────────────────────────────────────────────
 
-// April 2026: 30 days, April 1 = Wednesday (dow 3, 0 = Sunday)
-const APRIL_START_DOW = 3;
-const APRIL_DAYS = 30;
-// In our prototype: CURRENT_DAY(2) = Monday = April 2
+const BASE_YEAR  = 2026;
+const BASE_MONTH = 3; // April (JS month, 0-indexed)
+const MONTH_NAMES = [
+  "January","February","March","April","May","June",
+  "July","August","September","October","November","December",
+];
+const FULL_DAY_NAMES = [
+  "Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday",
+];
+
+function getMonthInfo(offset: number) {
+  let m = BASE_MONTH + offset;
+  let y = BASE_YEAR;
+  while (m < 0)  { m += 12; y--; }
+  while (m > 11) { m -= 12; y++; }
+  const firstDay    = new Date(y, m, 1);
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  return {
+    year: y, month: m,
+    daysInMonth,
+    startDow:  firstDay.getDay(), // 0 = Sunday
+    monthName: MONTH_NAMES[m],
+    yearStr:   String(y),
+  };
+}
+
+// In our prototype CURRENT_DAY=2 (Monday) = April 2 in the base month
 const MONTH_TODAY_DATE = 2;
 
-function MonthCellRing({ progress, size = 28 }: { progress: number; size?: number }) {
+function MonthCellRing({ progress, size = 26 }: { progress: number; size?: number }) {
   const sw = 2;
-  const r = (size - sw * 2) / 2;
+  const r  = (size - sw * 2) / 2;
   const circ = 2 * Math.PI * r;
   const cx = size / 2, cy = size / 2;
   const clamped = Math.min(Math.max(progress, 0), 1);
-  const offset = circ * (1 - clamped);
-
+  const offset  = circ * (1 - clamped);
   return (
     <svg
       width={size} height={size} viewBox={`0 0 ${size} ${size}`}
@@ -1976,13 +2002,11 @@ function MonthCellRing({ progress, size = 28 }: { progress: number; size?: numbe
         pointerEvents: "none",
       }}
     >
-      <circle
-        cx={cx} cy={cy} r={r} fill="none" stroke={BLUE} strokeWidth={sw}
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke={BLUE} strokeWidth={sw}
         strokeOpacity={progress > 0 ? 0.18 : 0}
         style={{ transition: `stroke-opacity ${MS.dProgress} ${MS.eOut}` }}
       />
-      <circle
-        cx={cx} cy={cy} r={r} fill="none" stroke={BLUE} strokeWidth={sw}
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke={BLUE} strokeWidth={sw}
         strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={offset}
         style={{ transition: `stroke-dashoffset ${MS.dProgress} ${MS.eOut}` }}
       />
@@ -1990,27 +2014,30 @@ function MonthCellRing({ progress, size = 28 }: { progress: number; size?: numbe
   );
 }
 
-function MonthView({
+// One month's calendar grid — extracted so MonthView can animate between months
+function MonthGrid({
+  offset,
   progressMaps,
   onDayTap,
 }: {
+  offset: number;
   progressMaps: Record<number, Record<string, { done: number; total: number }>>;
-  onDayTap: (date: number) => void;
+  onDayTap: (date: number, dayId: number | null) => void;
 }) {
-  // Build flat cell array
+  const { daysInMonth, startDow } = getMonthInfo(offset);
+
   const cells: (number | null)[] = [];
-  for (let i = 0; i < APRIL_START_DOW; i++) cells.push(null);
-  for (let d = 1; d <= APRIL_DAYS; d++) cells.push(d);
+  for (let i = 0; i < startDow; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
   while (cells.length % 7 !== 0) cells.push(null);
 
   const weeks: (number | null)[][] = [];
   for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
 
-  const DOW_LABELS = ["S", "M", "T", "W", "T", "F", "S"];
+  const DOW_LABELS = ["S","M","T","W","T","F","S"];
 
-  // Collect dot colors for a given date (dates 1–7 map directly to our day IDs)
   const getDotColors = (date: number): string[] => {
-    if (date < 1 || date > 7) return [];
+    if (offset !== 0 || date < 1 || date > 7) return [];
     const day = DAY_CONTENT[date];
     if (!day) return [];
     const colors: string[] = [];
@@ -2020,8 +2047,8 @@ function MonthView({
   };
 
   const getRingProgress = (date: number): number => {
-    if (date < 1 || date > 7) return 0;
-    const map = progressMaps[date] ?? {};
+    if (offset !== 0 || date < 1 || date > 7) return 0;
+    const map  = progressMaps[date] ?? {};
     const vals = Object.values(map);
     if (vals.length === 0) return 0;
     const { done, total } = vals.reduce(
@@ -2032,80 +2059,78 @@ function MonthView({
   };
 
   return (
-    <div style={{ padding: "8px 8px 100px" }}>
+    <div style={{ padding: "0 8px" }}>
       {/* Day-of-week labels */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", marginBottom: 2 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3, marginBottom: 4 }}>
         {DOW_LABELS.map((lbl, i) => (
-          <div key={i} style={{ textAlign: "center", fontSize: 11, fontWeight: 600, color: "#bbb", paddingBottom: 6 }}>
+          <div key={i} style={{ textAlign: "center", fontSize: 11, fontWeight: 600, color: "#c0c0c0", paddingBottom: 2 }}>
             {lbl}
           </div>
         ))}
       </div>
 
       {/* Weeks */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
         {weeks.map((week, wi) => (
-          <div key={wi} style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
+          <div key={wi} style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3 }}>
             {week.map((date, di) => {
               if (date === null) {
-                return <div key={di} style={{ minHeight: 54 }} />;
+                return <div key={di} style={{ minHeight: 58 }} />;
               }
 
-              const isToday = date === MONTH_TODAY_DATE;
-              const allDots = getDotColors(date);
-              const visibleDots = allDots.slice(0, 4);
-              const extraDots = Math.max(0, allDots.length - 4);
-              const ringProg = getRingProgress(date);
+              const isToday  = offset === 0 && date === MONTH_TODAY_DATE;
+              const hasTasks = offset === 0 && date >= 1 && date <= 7;
+              const dayId    = hasTasks ? date : null;
+              const allDots  = getDotColors(date);
+              const maxDots  = 3;
+              const visibleDots = allDots.slice(0, maxDots);
+              const extraDots   = Math.max(0, allDots.length - maxDots);
+              const ringProg    = getRingProgress(date);
 
               return (
                 <div
                   key={di}
-                  onClick={() => onDayTap(date)}
+                  onClick={() => hasTasks && onDayTap(date, dayId)}
                   style={{
-                    minHeight: 54,
-                    display: "flex", flexDirection: "column", alignItems: "center",
-                    paddingTop: 5, paddingBottom: 5,
+                    background: "#fff",
                     borderRadius: 10,
-                    cursor: "pointer",
-                    background: isToday ? "rgba(85,139,247,0.06)" : "transparent",
+                    boxShadow: CARD_SHADOW,
+                    minHeight: 58,
+                    display: "flex", flexDirection: "column",
+                    alignItems: "center",
+                    padding: "5px 3px 6px",
+                    cursor: hasTasks ? "pointer" : "default",
+                    userSelect: "none",
                   }}
                 >
-                  {/* Date number + ring */}
-                  <div style={{ position: "relative", width: 28, height: 28, marginBottom: 4 }}>
-                    <MonthCellRing progress={ringProg} size={28} />
-                    {isToday && (
-                      <div style={{
-                        position: "absolute", top: "50%", left: "50%",
-                        transform: "translate(-50%, -50%)",
-                        width: 22, height: 22, borderRadius: "50%", background: BLUE,
-                      }} />
+                  {/* Task color dots at top */}
+                  <div
+                    style={{
+                      display: "flex", flexWrap: "wrap", gap: 2,
+                      justifyContent: "center",
+                      minHeight: 12, marginBottom: 3,
+                    }}
+                  >
+                    {visibleDots.map((color, ci) => (
+                      <div key={ci} style={{ width: 5, height: 5, borderRadius: "50%", background: color, flexShrink: 0 }} />
+                    ))}
+                    {extraDots > 0 && (
+                      <span style={{ fontSize: 7.5, color: "#bbb", lineHeight: "1.4" }}>+{extraDots}</span>
                     )}
-                    <div style={{
-                      position: "absolute", inset: 0,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                    }}>
-                      <span style={{
-                        fontSize: 12,
-                        fontWeight: isToday ? 700 : 500,
-                        color: isToday ? "#fff" : "#1a1a1a",
-                        lineHeight: 1,
-                      }}>
+                  </div>
+
+                  {/* Date number + progress ring at bottom */}
+                  <div style={{ position: "relative", width: 26, height: 26, marginTop: "auto" }}>
+                    <MonthCellRing progress={ringProg} size={26} />
+                    {isToday && (
+                      <div style={{ position: "absolute", top: 2, left: 2, right: 2, bottom: 2, borderRadius: "50%", background: BLUE }} />
+                    )}
+                    <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span style={{ fontSize: 12, lineHeight: 1, fontWeight: isToday ? 700 : 500, color: isToday ? "#fff" : "#1a1a1a" }}>
                         {date}
                       </span>
                     </div>
                   </div>
-
-                  {/* Task dots */}
-                  {visibleDots.length > 0 && (
-                    <div style={{ display: "flex", gap: 2, alignItems: "center", justifyContent: "center", flexWrap: "wrap" }}>
-                      {visibleDots.map((color, i) => (
-                        <div key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: color, flexShrink: 0 }} />
-                      ))}
-                      {extraDots > 0 && (
-                        <span style={{ fontSize: 8, color: "#bbb", lineHeight: 1 }}>+{extraDots}</span>
-                      )}
-                    </div>
-                  )}
                 </div>
               );
             })}
@@ -2113,6 +2138,287 @@ function MonthView({
         ))}
       </div>
     </div>
+  );
+}
+
+function MonthView({
+  monthOffset,
+  onMonthChange,
+  progressMaps,
+  onDayTap,
+}: {
+  monthOffset: number;
+  onMonthChange: (offset: number) => void;
+  progressMaps: Record<number, Record<string, { done: number; total: number }>>;
+  onDayTap: (date: number, dayId: number | null) => void;
+}) {
+  const [visibleOffset, setVisibleOffset] = useState(monthOffset);
+  const [exitOffset,    setExitOffset]    = useState<number | null>(null);
+  const [slideDir,      setSlideDir]      = useState<"left" | "right" | null>(null);
+  const animTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (monthOffset === visibleOffset) return;
+    const dir = monthOffset > visibleOffset ? "left" : "right";
+    if (animTimer.current) clearTimeout(animTimer.current);
+    setExitOffset(visibleOffset);
+    setSlideDir(dir);
+    setVisibleOffset(monthOffset);
+    animTimer.current = setTimeout(() => {
+      setExitOffset(null);
+      setSlideDir(null);
+    }, TD_ANIM_MS + 20);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [monthOffset]);
+
+  const swipe = useRef({ startX: 0, startY: 0, active: false });
+  const slideInAnim  = slideDir === "left" ? "tdSlideInRight" : "tdSlideInLeft";
+  const slideOutAnim = slideDir === "left" ? "tdSlideOutLeft" : "tdSlideOutRight";
+
+  return (
+    <div
+      style={{ position: "relative", overflow: "hidden", paddingBottom: 100 }}
+      onPointerDown={(e) => { swipe.current = { startX: e.clientX, startY: e.clientY, active: true }; }}
+      onPointerUp={(e) => {
+        if (!swipe.current.active) return;
+        swipe.current.active = false;
+        const dx = e.clientX - swipe.current.startX;
+        const dy = e.clientY - swipe.current.startY;
+        if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) {
+          onMonthChange(dx < 0 ? monthOffset + 1 : monthOffset - 1);
+        }
+      }}
+      onPointerCancel={() => { swipe.current.active = false; }}
+    >
+      {/* Exiting panel */}
+      {exitOffset !== null && slideDir && (
+        <div
+          style={{
+            position: "absolute", top: 0, left: 0, right: 0,
+            animation: `${slideOutAnim} ${TD_ANIM_MS}ms ${MS.eOut} both`,
+          }}
+        >
+          <MonthGrid offset={exitOffset} progressMaps={progressMaps} onDayTap={onDayTap} />
+        </div>
+      )}
+
+      {/* Entering panel */}
+      <div
+        key={visibleOffset}
+        style={{ animation: slideDir ? `${slideInAnim} ${TD_ANIM_MS}ms ${MS.eOut} both` : undefined }}
+      >
+        <MonthGrid offset={visibleOffset} progressMaps={progressMaps} onDayTap={onDayTap} />
+      </div>
+    </div>
+  );
+}
+
+// ─── Month day bottom sheet ──────────────────────────────────────────────────
+
+function SheetTaskCard({
+  title,
+  accentColor,
+  taskCount,
+  subtitle,
+  done,
+  total,
+  onToggle,
+}: {
+  title: string;
+  accentColor: string;
+  taskCount: number;
+  subtitle?: string;
+  done: number;
+  total: number;
+  onToggle: () => void;
+}) {
+  const isChecked = total > 0 && done === total;
+  const progress  = total > 0 ? done / total : done;
+
+  return (
+    <div className="bg-white" style={{ borderRadius: 12, boxShadow: CARD_SHADOW, overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", minHeight: 60, padding: "12px 12px 12px 0" }}>
+        {/* Colored left accent bar */}
+        <div style={{ width: 4, alignSelf: "stretch", background: accentColor, borderRadius: 2, margin: "0 12px", flexShrink: 0 }} />
+        {/* Text */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="font-bold" style={{ fontSize: 14, color: "#1a1a1a", lineHeight: "1.3" }}>{title}</div>
+          {subtitle ? (
+            <div style={{ fontSize: 12, color: "#999", marginTop: 2 }}>{subtitle}</div>
+          ) : taskCount > 0 ? (
+            <div style={{ fontSize: 12, color: "#bbb", marginTop: 2 }}>Task list ({taskCount})</div>
+          ) : null}
+        </div>
+        {/* Checkbox */}
+        <div
+          onClick={(e) => { e.stopPropagation(); onToggle(); }}
+          style={{
+            width: 22, height: 22, borderRadius: 6, flexShrink: 0, marginLeft: 8,
+            border: isChecked ? "none" : "1.5px solid #d0d0d0",
+            background: isChecked ? BLUE : "transparent",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer",
+            transition: `background ${MS.dCheck} ${MS.eOut}`,
+          }}
+        >
+          {isChecked && (
+            <svg width="13" height="10" viewBox="0 0 13 10" fill="none">
+              <path d="M1 5l4 4L12 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
+        </div>
+      </div>
+
+      {/* Thin bottom progress bar (only for multi-task cards) */}
+      {total > 1 && (
+        <div style={{ height: 3, background: `color-mix(in srgb, ${accentColor} 15%, transparent)` }}>
+          <div
+            style={{
+              height: "100%", width: `${Math.round(progress * 100)}%`,
+              background: accentColor,
+              transition: `width ${MS.dProgress} ${MS.eOut}`,
+            }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DayBottomSheet({
+  dayId,
+  date,
+  monthOffset,
+  progressMap,
+  onProgressChange,
+  onForceSignal,
+  onExpand,
+  onClose,
+}: {
+  dayId: number;
+  date: number;
+  monthOffset: number;
+  progressMap: Record<string, { done: number; total: number }>;
+  onProgressChange: (id: string, done: number, total: number) => void;
+  onForceSignal: (id: string, allDone: boolean) => void;
+  onExpand: () => void;
+  onClose: () => void;
+}) {
+  const day          = DAY_CONTENT[dayId];
+  const { monthName, yearStr } = getMonthInfo(monthOffset);
+  const fullDayName  = FULL_DAY_NAMES[dayId - 1] ?? "";
+  const dateStr      = `${monthName} ${date}, ${yearStr}`;
+
+  const makeToggle = (id: string, defaultTotal: number) => () => {
+    const e    = progressMap[id];
+    const total = e?.total ?? defaultTotal;
+    const done  = e?.done  ?? 0;
+    const willBeAllDone = done !== total;
+    onProgressChange(id, willBeAllDone ? total : 0, total);
+    onForceSignal(id, willBeAllDone);
+  };
+
+  return (
+    <>
+      {/* Scrim — tap to close */}
+      <div
+        style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.38)", zIndex: 40 }}
+        onClick={onClose}
+      />
+
+      {/* Sheet */}
+      <div
+        style={{
+          position: "absolute", bottom: 0, left: 0, right: 0,
+          maxHeight: "70%",
+          background: "#fff",
+          borderRadius: "18px 18px 0 0",
+          zIndex: 41,
+          display: "flex", flexDirection: "column",
+          boxShadow: "0 -6px 32px rgba(0,0,0,0.14)",
+          animation: `sheetSlideUp ${MS.dExpand} ${MS.eOut} both`,
+        }}
+      >
+        {/* Handle pill */}
+        <div style={{ display: "flex", justifyContent: "center", paddingTop: 10, paddingBottom: 2 }}>
+          <div style={{ width: 36, height: 4, borderRadius: 2, background: "rgba(0,0,0,0.12)" }} />
+        </div>
+
+        {/* Header row */}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", padding: "8px 16px 10px" }}>
+          <div>
+            <div className="font-bold" style={{ fontSize: 17, color: "#1a1a1a" }}>{fullDayName}</div>
+            <div style={{ fontSize: 13, color: "#aaa", marginTop: 2 }}>{dateStr}</div>
+          </div>
+          {/* Expand → full Day view */}
+          <div
+            onClick={onExpand}
+            style={{
+              width: 36, height: 36, borderRadius: 10, background: "#F5F5F5",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer", flexShrink: 0,
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M14 10L21 3M21 3H15M21 3V9M10 14L3 21M3 21H9M3 21L3 15" stroke="#727272" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div style={{ height: 1, background: "rgba(0,0,0,0.06)", margin: "0 16px 4px" }} />
+
+        {/* Scrollable task content */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "8px 0 83px" }}>
+          {/* Anytime */}
+          {day?.anytime && day.anytime.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ padding: "0 16px 6px", fontSize: 11, fontWeight: 600, color: "#bbb", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                Anytime
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "0 12px" }}>
+                {day.anytime.map((c) => {
+                  const e = progressMap[c.id];
+                  const defaultTotal = c.tasks && c.tasks.length > 0 ? c.tasks.length : 1;
+                  return (
+                    <SheetTaskCard
+                      key={c.id} title={c.title} accentColor={c.accentColor}
+                      taskCount={c.tasks?.length ?? 0}
+                      done={e?.done ?? 0} total={e?.total ?? defaultTotal}
+                      onToggle={makeToggle(c.id, defaultTotal)}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Planned */}
+          {day?.planned && day.planned.some((c) => c.kind === "timed") && (
+            <div>
+              <div style={{ padding: "0 16px 6px", fontSize: 11, fontWeight: 600, color: "#bbb", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                Planned
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "0 12px" }}>
+                {day.planned.map((c) => {
+                  if (c.kind === "gap") return null;
+                  const e = progressMap[c.id];
+                  const defaultTotal = c.tasks && c.tasks.length > 0 ? c.tasks.length : 1;
+                  return (
+                    <SheetTaskCard
+                      key={c.id} title={c.title} accentColor={c.avatarColor}
+                      taskCount={c.tasks?.length ?? 0} subtitle={c.timeRange}
+                      done={e?.done ?? 0} total={e?.total ?? defaultTotal}
+                      onToggle={makeToggle(c.id, defaultTotal)}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -2132,6 +2438,12 @@ function DashboardScreen({
 
   // 3-day window: first day id in the window (1–5)
   const [threeDayStart, setThreeDayStart] = useState<number>(1);
+
+  // Month view: offset from base month (April 2026 = 0)
+  const [monthOffset, setMonthOffset] = useState(0);
+
+  // Bottom sheet: which day is tapped in Month view (null = closed)
+  const [monthSheet, setMonthSheet] = useState<{ date: number; dayId: number } | null>(null);
 
   // Today icon button: only when CURRENT_DAY is outside the visible 3-day window
   const showTodayBtn =
@@ -2247,6 +2559,7 @@ function DashboardScreen({
         @keyframes tdSlideInLeft   { from { transform: translateX(-100%); } to { transform: translateX(0); } }
         @keyframes tdSlideOutLeft  { from { transform: translateX(0); } to { transform: translateX(-100%); } }
         @keyframes tdSlideOutRight { from { transform: translateX(0); } to { transform: translateX(100%); } }
+        @keyframes sheetSlideUp    { from { transform: translateY(100%); } to { transform: translateY(0); } }
       `}</style>
 
       {/* ── Fixed header ── */}
@@ -2265,6 +2578,8 @@ function DashboardScreen({
             // Page 0 (start=1) contains CURRENT_DAY=2
             setThreeDayStart(1);
           }}
+          monthName={view === "month" ? getMonthInfo(monthOffset).monthName : "April"}
+          year={view === "month" ? getMonthInfo(monthOffset).yearStr : "2026"}
         />
         {/* WeekStrip only shown in Day view */}
         {view === "day" && (
@@ -2329,13 +2644,33 @@ function DashboardScreen({
         {/* Month view */}
         {view === "month" && (
           <MonthView
+            monthOffset={monthOffset}
+            onMonthChange={setMonthOffset}
             progressMaps={progressMaps}
-            onDayTap={(_date) => {
-              // TODO: show day popover
+            onDayTap={(date, dayId) => {
+              if (dayId !== null) setMonthSheet({ date, dayId });
             }}
           />
         )}
       </div>
+
+      {/* Day bottom sheet (Month view → day tap) */}
+      {monthSheet && (
+        <DayBottomSheet
+          dayId={monthSheet.dayId}
+          date={monthSheet.date}
+          monthOffset={monthOffset}
+          progressMap={progressMaps[monthSheet.dayId] ?? {}}
+          onProgressChange={progressHandlers[monthSheet.dayId]}
+          onForceSignal={(cardId, allDone) => handleForceSignal(monthSheet.dayId, cardId, allDone)}
+          onExpand={() => {
+            setMonthSheet(null);
+            setActiveDay(monthSheet.dayId);
+            switchView("day");
+          }}
+          onClose={() => setMonthSheet(null)}
+        />
+      )}
 
       <FABButton />
       <TabBar />
