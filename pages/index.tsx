@@ -156,8 +156,8 @@ function Header({
             }}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M20 10.2H4M7.11111 21C5.61764 21 6.02646 21 5.45603 20.7057C4.95426 20.4469 4.54631 20.0338 4.29065 19.5258C4 18.9482 4 18.1921 4 16.68V9.12C4 7.60786 4 6.85179 4.29065 6.27423C4.54631 5.76619 4.95426 5.35314 5.45603 5.09428C6.02646 4.8 6.77319 4.8 8.26667 4.8H15.7333C17.2268 4.8 17.9735 4.8 18.544 5.09428C19.0457 5.35314 19.4537 5.76619 19.7094 6.27423C20 6.85179 20 7.60786 20 9.12V16.68C20 18.1921 20 18.9482 19.7094 19.5258C19.4537 20.0338 19.0457 20.4469 18.544 20.7057C17.9735 21 18.3824 21 16.8889 21M15.5556 3V6.6M8.44444 3V6.6" stroke="#242424" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M10 18.4286L12 21M12 21L14 18.4286M12 21V15" stroke="#242424" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M20 10.2H4M7.11111 21C5.61764 21 6.02646 21 5.45603 20.7057C4.95426 20.4469 4.54631 20.0338 4.29065 19.5258C4 18.9482 4 18.1921 4 16.68V9.12C4 7.60786 4 6.85179 4.29065 6.27423C4.54631 5.76619 4.95426 5.35314 5.45603 5.09428C6.02646 4.8 6.77319 4.8 8.26667 4.8H15.7333C17.2268 4.8 17.9735 4.8 18.544 5.09428C19.0457 5.35314 19.4537 5.76619 19.7094 6.27423C20 6.85179 20 7.60786 20 9.12V16.68C20 18.1921 20 18.9482 19.7094 19.5258C19.4537 20.0338 19.0457 20.4469 18.544 20.7057C17.9735 21 18.3824 21 16.8889 21M15.5556 3V6.6M8.44444 3V6.6" stroke="#242424" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M10 18.4286L12 21M12 21L14 18.4286M12 21V15" stroke="#242424" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
         )}
@@ -2037,8 +2037,10 @@ function DashboardScreen({
   // 3-day window: first day id in the window (1–5)
   const [threeDayStart, setThreeDayStart] = useState<number>(1);
 
-  // Today icon button always visible in 3-day view
-  const showTodayBtn = view === "3day";
+  // Today icon button: only when CURRENT_DAY is outside the visible 3-day window
+  const showTodayBtn =
+    view === "3day" &&
+    (CURRENT_DAY < threeDayStart || CURRENT_DAY > threeDayStart + 2);
 
   const switchView = useCallback((v: CalendarView) => {
     setView(v);
