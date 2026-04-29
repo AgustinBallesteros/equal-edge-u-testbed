@@ -2689,6 +2689,36 @@ const PRESETS = {
   responsive: { label: "Responsive",        w: null, h: null },
 } as const;
 type PresetKey = keyof typeof PRESETS;
+type Platform  = "mobile" | "desktop";
+
+// ─── Desktop screen (placeholder) ────────────────────────────────────────────
+
+function DesktopScreen() {
+  return (
+    <div
+      style={{
+        width: "100%", height: "100%",
+        background: "#F5F5F5",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        flexDirection: "column", gap: 12,
+      }}
+    >
+      <div style={{
+        width: 48, height: 48, borderRadius: 12,
+        background: "#E0E0E0",
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <rect x="2" y="4" width="20" height="14" rx="2" stroke="#999" strokeWidth="1.5"/>
+          <path d="M8 20h8M12 18v2" stroke="#999" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
+      </div>
+      <span style={{ fontSize: 14, color: "#999", fontFamily: "var(--font-inter)" }}>
+        Desktop view — coming soon
+      </span>
+    </div>
+  );
+}
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -2696,6 +2726,12 @@ export default function Home() {
   const [preset,      setPreset]      = useState<PresetKey>("iphone17");
   const [scale,       setScale]       = useState(1);
   const [menuOpen,    setMenuOpen]    = useState(true);
+  const [platform,    setPlatform]    = useState<Platform>("mobile");
+
+  // Reset scale to 1 when switching to desktop (no auto-fit needed)
+  useEffect(() => {
+    if (platform === "desktop") setScale(1);
+  }, [platform]);
 
   // ── Dev menu drag-to-reposition ────────────────────────────────────────────
   const MENU_ORIGIN = { top: 16, left: 16 };
@@ -2787,12 +2823,13 @@ export default function Home() {
     setMenuOpen(v => !v);
   }, []);
 
-  const isResponsive = preset === "responsive";
-  const { w, h } = PRESETS[preset];
+  const isDesktop    = platform === "desktop";
+  const isResponsive = !isDesktop && preset === "responsive";
+  const { w, h }     = isDesktop ? { w: null, h: null } : PRESETS[preset];
 
-  // Auto-fit scale to viewport whenever preset or window size changes
+  // Auto-fit scale to viewport whenever preset or window size changes (mobile fixed only)
   useEffect(() => {
-    if (isResponsive) return;
+    if (isDesktop || isResponsive) return;
     const fit = () => {
       const s = Math.min(1, (window.innerHeight - 48) / h!);
       setScale(parseFloat(s.toFixed(2)));
@@ -2800,11 +2837,11 @@ export default function Home() {
     fit();
     window.addEventListener("resize", fit);
     return () => window.removeEventListener("resize", fit);
-  }, [preset, isResponsive, h]);
+  }, [preset, isDesktop, isResponsive, h]);
 
   // Visual dimensions after scaling
-  const visualW = isResponsive ? "100vw" : w! * scale;
-  const visualH = isResponsive ? "100vh" : h! * scale;
+  const visualW = (isDesktop || isResponsive) ? "100vw" : w! * scale;
+  const visualH = (isDesktop || isResponsive) ? "100vh" : h! * scale;
 
   return (
     <div
@@ -2814,31 +2851,33 @@ export default function Home() {
         background: "#E8E8ED",
         fontFamily: "var(--font-inter)",
         display: "flex", alignItems: "center", justifyContent: "center",
-        overflow: isResponsive ? "hidden" : undefined,
+        overflow: (isDesktop || isResponsive) ? "hidden" : undefined,
       }}
     >
       {/* ── Viewport frame ── */}
       <div style={{ width: visualW, height: visualH, flexShrink: 0, position: "relative" }}>
         <div
           style={{
-            transform: isResponsive ? undefined : `scale(${scale})`,
+            transform: (isDesktop || isResponsive) ? (scale !== 1 ? `scale(${scale})` : undefined) : `scale(${scale})`,
             transformOrigin: "top left",
-            width:  isResponsive ? "100%" : w!,
-            height: isResponsive ? "100%" : h!,
+            width:  (isDesktop || isResponsive) ? "100%" : w!,
+            height: (isDesktop || isResponsive) ? "100%" : h!,
             background: "#fff",
             overflow: "hidden",
-            // Subtle shadow so the frame reads against the background
-            boxShadow: isResponsive ? "none" : "0 8px 40px rgba(0,0,0,0.18)",
-            borderRadius: isResponsive ? 0 : 8,
-            // Disable text selection inside the prototype
+            boxShadow: (isDesktop || isResponsive) ? "none" : "0 8px 40px rgba(0,0,0,0.18)",
+            borderRadius: (isDesktop || isResponsive) ? 0 : 8,
             userSelect: "none",
             WebkitUserSelect: "none",
           }}
         >
-          <DashboardScreen
-            width={isResponsive ? "100%" : w!}
-            height={isResponsive ? "100%" : h!}
-          />
+          {isDesktop ? (
+            <DesktopScreen />
+          ) : (
+            <DashboardScreen
+              width={isResponsive ? "100%" : w!}
+              height={isResponsive ? "100%" : h!}
+            />
+          )}
         </div>
       </div>
 
@@ -2891,55 +2930,88 @@ export default function Home() {
               minWidth: 210,
             }}
           >
-            {/* Section label */}
+            {/* Platform toggle */}
             <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.35)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-              Viewport
+              Platform
             </span>
+            <div style={{ display: "flex", gap: 3, background: "rgba(255,255,255,0.07)", borderRadius: 9, padding: 3 }}>
+              {(["mobile", "desktop"] as Platform[]).map((p) => {
+                const isActive = platform === p;
+                return (
+                  <button
+                    key={p}
+                    onClick={() => setPlatform(p)}
+                    style={{
+                      flex: 1, height: 28, borderRadius: 7, border: "none",
+                      background: isActive ? BLUE : "transparent",
+                      color: isActive ? "#fff" : "rgba(255,255,255,0.5)",
+                      fontSize: 12, fontWeight: isActive ? 600 : 400,
+                      cursor: "pointer", fontFamily: "var(--font-inter)",
+                      transition: `background ${MS.dFast} ${MS.eOut}, color ${MS.dFast} ${MS.eOut}`,
+                    }}
+                  >
+                    {p.charAt(0).toUpperCase() + p.slice(1)}
+                  </button>
+                );
+              })}
+            </div>
 
-            {/* Preset options */}
-            {(Object.keys(PRESETS) as PresetKey[]).map((key) => {
-              const p = PRESETS[key];
-              const active = preset === key;
-              return (
-                <div
-                  key={key}
-                  onClick={() => setPreset(key)}
-                  style={{
-                    display: "flex", alignItems: "center", justifyContent: "space-between",
-                    gap: 10, cursor: "pointer", borderRadius: 8,
-                    padding: "7px 10px",
-                    background: active ? "rgba(85,139,247,0.22)" : "transparent",
-                    transition: `background ${MS.dFast} ${MS.eOut}`,
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    {/* Selection dot */}
-                    <div style={{
-                      width: 14, height: 14, borderRadius: "50%", flexShrink: 0,
-                      border: active ? "none" : "1.5px solid rgba(255,255,255,0.25)",
-                      background: active ? BLUE : "transparent",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                    }}>
-                      {active && <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#fff" }} />}
+            {/* Viewport section — mobile only */}
+            {!isDesktop && (
+              <>
+                {/* Divider */}
+                <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "0 -2px" }} />
+
+                {/* Section label */}
+                <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.35)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                  Viewport
+                </span>
+
+                {/* Preset options */}
+                {(Object.keys(PRESETS) as PresetKey[]).map((key) => {
+                  const p = PRESETS[key];
+                  const active = preset === key;
+                  return (
+                    <div
+                      key={key}
+                      onClick={() => setPreset(key)}
+                      style={{
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                        gap: 10, cursor: "pointer", borderRadius: 8,
+                        padding: "7px 10px",
+                        background: active ? "rgba(85,139,247,0.22)" : "transparent",
+                        transition: `background ${MS.dFast} ${MS.eOut}`,
+                      }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{
+                          width: 14, height: 14, borderRadius: "50%", flexShrink: 0,
+                          border: active ? "none" : "1.5px solid rgba(255,255,255,0.25)",
+                          background: active ? BLUE : "transparent",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                        }}>
+                          {active && <div style={{ width: 5, height: 5, borderRadius: "50%", background: "#fff" }} />}
+                        </div>
+                        <span style={{ fontSize: 13, color: active ? "#fff" : "rgba(255,255,255,0.65)", fontWeight: active ? 500 : 400 }}>
+                          {p.label}
+                        </span>
+                      </div>
+                      {p.w && (
+                        <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", flexShrink: 0 }}>
+                          {p.w}×{p.h}
+                        </span>
+                      )}
                     </div>
-                    <span style={{ fontSize: 13, color: active ? "#fff" : "rgba(255,255,255,0.65)", fontWeight: active ? 500 : 400 }}>
-                      {p.label}
-                    </span>
-                  </div>
-                  {p.w && (
-                    <span style={{ fontSize: 10, color: "rgba(255,255,255,0.3)", flexShrink: 0 }}>
-                      {p.w}×{p.h}
-                    </span>
-                  )}
-                </div>
-              );
-            })}
+                  );
+                })}
+              </>
+            )}
 
             {/* Divider */}
             <div style={{ height: 1, background: "rgba(255,255,255,0.08)", margin: "0 -2px" }} />
 
             {/* Scale slider */}
-            <div style={{ display: "flex", flexDirection: "column", gap: 6, opacity: isResponsive ? 0.35 : 1, transition: `opacity ${MS.dFast} ${MS.eOut}` }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, opacity: (!isDesktop && isResponsive) ? 0.35 : 1, transition: `opacity ${MS.dFast} ${MS.eOut}` }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <span style={{ fontSize: 10, fontWeight: 600, color: "rgba(255,255,255,0.35)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
                   Scale
@@ -2954,9 +3026,9 @@ export default function Home() {
                 </svg>
                 <input
                   type="range" min={0.3} max={1} step={0.01} value={scale}
-                  disabled={isResponsive}
+                  disabled={!isDesktop && isResponsive}
                   onChange={(e) => setScale(Number(e.target.value))}
-                  style={{ flex: 1, accentColor: BLUE, cursor: isResponsive ? "not-allowed" : "pointer" }}
+                  style={{ flex: 1, accentColor: BLUE, cursor: (!isDesktop && isResponsive) ? "not-allowed" : "pointer" }}
                 />
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
                   <rect x="0.5" y="1.5" width="11" height="9" rx="1.5" stroke="rgba(255,255,255,0.4)" strokeWidth="1.2"/>
