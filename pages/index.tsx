@@ -2691,31 +2691,615 @@ const PRESETS = {
 type PresetKey = keyof typeof PRESETS;
 type Platform  = "mobile" | "desktop";
 
-// ─── Desktop screen (placeholder) ────────────────────────────────────────────
+// ─── Desktop layout constants & helpers ──────────────────────────────────────
 
-function DesktopScreen() {
-  return (
-    <div
-      style={{
-        width: "100%", height: "100%",
-        background: "#F5F5F5",
-        display: "flex", alignItems: "center", justifyContent: "center",
-        flexDirection: "column", gap: 12,
-      }}
-    >
+const DESKTOP_SIDEBAR_W = 260;
+const DESKTOP_HOUR_H    = 88;           // px per hour in the timeline
+const DESKTOP_DAY_START = 8;            // 8 AM
+const DESKTOP_DAY_END   = 17;           // 5 PM
+const DESKTOP_NOW_H     = 9 + 41 / 60; // prototype "current time" = 9:41 AM
+
+function desktopParseHour(str: string): number {
+  const m = str.trim().match(/^(\d+):(\d+)\s*(AM|PM)$/i);
+  if (!m) return 0;
+  let h = parseInt(m[1]);
+  const min = parseInt(m[2]);
+  const ap  = m[3].toUpperCase();
+  if (ap === "PM" && h !== 12) h += 12;
+  if (ap === "AM" && h === 12) h = 0;
+  return h + min / 60;
+}
+
+function desktopParseRange(range: string): { start: number; end: number } | null {
+  const parts = range.split("→").map((s) => s.trim());
+  if (parts.length !== 2) return null;
+  const start = desktopParseHour(parts[0]);
+  const end   = desktopParseHour(parts[1]);
+  return start > 0 && end > start ? { start, end } : null;
+}
+
+// ─── Desktop sidebar panel ────────────────────────────────────────────────────
+
+function DesktopSidebarPanel({ task }: { task: TaskEntry | null }) {
+  const [doneMap, setDoneMap] = useState<Record<number, boolean>>({});
+
+  useEffect(() => {
+    setDoneMap(task?.initialDoneMap ?? {});
+  }, [task?.id]);
+
+  if (!task) {
+    return (
       <div style={{
-        width: 48, height: 48, borderRadius: 12,
-        background: "#E0E0E0",
+        width: DESKTOP_SIDEBAR_W, flexShrink: 0, background: "#fff",
+        borderRight: "1px solid rgba(0,0,0,0.07)",
         display: "flex", alignItems: "center", justifyContent: "center",
       }}>
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-          <rect x="2" y="4" width="20" height="14" rx="2" stroke="#999" strokeWidth="1.5"/>
-          <path d="M8 20h8M12 18v2" stroke="#999" strokeWidth="1.5" strokeLinecap="round"/>
+        <span style={{ fontSize: 13, color: "#ccc" }}>Select a task</span>
+      </div>
+    );
+  }
+
+  const tasks     = task.tasks ?? [];
+  const total     = tasks.length;
+  const doneCount = Object.values(doneMap).filter(Boolean).length;
+  const allDone   = total > 0 && doneCount === total;
+  const remainingMins = tasks.reduce((sum, t, i) =>
+    !doneMap[i] && t.minutes ? sum + t.minutes : sum, 0);
+
+  const toggleSubtask = (i: number) => setDoneMap((p) => ({ ...p, [i]: !p[i] }));
+  const toggleAll = () => {
+    if (allDone) { setDoneMap({}); }
+    else { const a: Record<number,boolean> = {}; tasks.forEach((_,i) => { a[i]=true; }); setDoneMap(a); }
+  };
+
+  return (
+    <div style={{
+      width: DESKTOP_SIDEBAR_W, flexShrink: 0, background: "#fff",
+      borderRight: "1px solid rgba(0,0,0,0.07)",
+      display: "flex", flexDirection: "column", overflow: "hidden",
+    }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "20px 14px 20px", scrollbarWidth: "none" } as React.CSSProperties}>
+
+        {/* Task header: dot + title + all-done toggle */}
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 4 }}>
+          <div style={{ width: 10, height: 10, borderRadius: "50%", background: task.accentColor, marginTop: 4, flexShrink: 0 }} />
+          <div className="font-bold" style={{ fontSize: 15, color: "#1a1a1a", lineHeight: "1.3", flex: 1 }}>
+            {task.title}
+          </div>
+          <div
+            onClick={toggleAll}
+            style={{
+              width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
+              border: allDone ? "none" : "2px solid rgba(0,0,0,0.18)",
+              background: allDone ? BLUE : "transparent",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: total > 0 ? "pointer" : "default",
+              transition: `background ${MS.dCheck} ${MS.eOut}`,
+            }}
+          >
+            {allDone && (
+              <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
+                <path d="M1 4.5l3 3L10 1" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            )}
+          </div>
+        </div>
+
+        {/* Remaining time */}
+        {remainingMins > 0 && (
+          <div style={{ fontSize: 12, color: "#aaa", marginLeft: 20, marginBottom: 12 }}>
+            {formatRemaining(remainingMins)} left
+          </div>
+        )}
+
+        {/* Divider */}
+        {total > 0 && <div style={{ height: 1, background: "rgba(0,0,0,0.06)", margin: "8px 0" }} />}
+
+        {/* Subtask rows */}
+        {tasks.map((t, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0" }}>
+            <div
+              onClick={() => toggleSubtask(i)}
+              style={{
+                width: 20, height: 20, borderRadius: "50%", flexShrink: 0,
+                cursor: "pointer",
+                border: doneMap[i] ? "none" : "2px solid rgba(0,0,0,0.18)",
+                background: doneMap[i] ? BLUE : "transparent",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                transition: `background ${MS.dCheck} ${MS.eOut}`,
+              }}
+            >
+              {doneMap[i] && (
+                <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                  <path d="M1 4l3 3 5-6" stroke="white" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              )}
+            </div>
+            <span style={{
+              fontSize: 13, flex: 1, lineHeight: "1.35",
+              color: doneMap[i] ? "#bbb" : "#333",
+              textDecoration: doneMap[i] ? "line-through" : "none",
+              transition: `color ${MS.dFast} ${MS.eOut}`,
+            }}>
+              {t.label}
+            </span>
+          </div>
+        ))}
+
+        {/* Count footer */}
+        {total > 0 && (
+          <div style={{
+            marginTop: 10, display: "flex", alignItems: "center",
+            justifyContent: "space-between",
+            paddingTop: 8, borderTop: "1px solid rgba(0,0,0,0.06)",
+          }}>
+            <span style={{ fontSize: 12, color: "#999" }}>{doneCount}/{total}</span>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+              <path d="M4 10l4-4 4 4" stroke="#ccc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Desktop header ───────────────────────────────────────────────────────────
+
+function DesktopHeader({
+  activeDay, view, onViewChange, onPrevDay, onNextDay,
+}: {
+  activeDay: number;
+  view: CalendarView;
+  onViewChange: (v: CalendarView) => void;
+  onPrevDay: () => void;
+  onNextDay: () => void;
+}) {
+  const [dropOpen, setDropOpen] = useState(false);
+  const dropRef   = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!dropOpen) return;
+    const h = (e: PointerEvent) => {
+      if (!dropRef.current?.contains(e.target as Node)) setDropOpen(false);
+    };
+    window.addEventListener("pointerdown", h);
+    return () => window.removeEventListener("pointerdown", h);
+  }, [dropOpen]);
+
+  const dayInfo     = WEEK_DAYS.find((d) => d.id === activeDay);
+  const fullDayName = FULL_DAY_NAMES[activeDay - 1] ?? "";
+  const active      = CALENDAR_VIEWS.find((v) => v.id === view)!;
+
+  const navBtn = (onClick: () => void, d: string) => (
+    <div
+      onClick={onClick}
+      style={{
+        width: 30, height: 30, borderRadius: 8, background: "#F2F2F2",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        cursor: "pointer", userSelect: "none", flexShrink: 0,
+      }}
+    >
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <path d={d} stroke="#444" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    </div>
+  );
+
+  return (
+    <div style={{
+      height: 64, display: "flex", alignItems: "center",
+      paddingLeft: 20, paddingRight: 20, gap: 10,
+      borderBottom: "1px solid rgba(0,0,0,0.07)",
+      background: "#fff", flexShrink: 0,
+    }}>
+
+      {/* Date label */}
+      <div className="font-bold" style={{ fontSize: 22, color: "#1a1a1a", whiteSpace: "nowrap" }}>
+        {fullDayName} {dayInfo?.num} , April 2026
+      </div>
+
+      {/* View picker */}
+      <div ref={dropRef} style={{ position: "relative", flexShrink: 0 }}>
+        <div
+          onClick={() => setDropOpen((v) => !v)}
+          className="flex items-center gap-1.5 px-3"
+          style={{
+            background: "#F2F2F2", height: 32, borderRadius: 9,
+            cursor: "pointer", userSelect: "none", color: "#242424",
+          }}
+        >
+          {active.icon}
+          <span className="font-medium" style={{ fontSize: 13 }}>{active.label}</span>
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M3 4.5l3 3 3-3" stroke="#666" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
+        {/* Dropdown */}
+        <div style={{
+          position: "absolute", top: "calc(100% + 6px)", left: 0,
+          background: "#fff", borderRadius: 12,
+          boxShadow: "0 4px 24px rgba(0,0,0,0.13), 0 1px 4px rgba(0,0,0,0.07)",
+          padding: 6, display: "flex", flexDirection: "column", gap: 2,
+          minWidth: 140, zIndex: 50,
+          pointerEvents: dropOpen ? "auto" : "none",
+          opacity: dropOpen ? 1 : 0,
+          transform: dropOpen ? "translateY(0) scale(1)" : "translateY(-6px) scale(0.97)",
+          transformOrigin: "top left",
+          transition: `opacity ${MS.dElement} ${MS.eOut}, transform ${MS.dElement} ${MS.eOut}`,
+        }}>
+          {CALENDAR_VIEWS.map((cv) => {
+            const isSel = cv.id === view;
+            return (
+              <div key={cv.id} onClick={() => { onViewChange(cv.id); setDropOpen(false); }}
+                className="flex items-center gap-2.5"
+                style={{
+                  padding: "7px 10px", borderRadius: 8, cursor: "pointer", userSelect: "none",
+                  background: isSel ? "#F2F2F2" : "transparent", color: "#242424",
+                  transition: `background ${MS.dFast} ${MS.eOut}`,
+                }}
+              >
+                {cv.icon}
+                <span className="font-medium" style={{ fontSize: 13 }}>{cv.label}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Nav arrows */}
+      {navBtn(onPrevDay, "M10 3L5 8l5 5")}
+      {navBtn(onNextDay, "M6 3l5 5-5 5")}
+
+      {/* Spacer */}
+      <div style={{ flex: 1 }} />
+
+      {/* FAB + */}
+      <div style={{
+        width: 50, height: 50, borderRadius: "50%",
+        background: "#1a1a1a",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        cursor: "pointer", flexShrink: 0,
+        boxShadow: "0 2px 12px rgba(0,0,0,0.2)",
+      }}>
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <path d="M11 4v14M4 11h14" stroke="white" strokeWidth="2.2" strokeLinecap="round"/>
         </svg>
       </div>
-      <span style={{ fontSize: 14, color: "#999", fontFamily: "var(--font-inter)" }}>
-        Desktop view — coming soon
+
+      {/* Learn button */}
+      <div className="flex items-center gap-1.5" style={{ cursor: "pointer", padding: "6px 8px", borderRadius: 8, color: "#1a1a1a", userSelect: "none" }}>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2a7 7 0 0 1 4.9 11.9c-.6.6-1.2 1.4-1.5 2.1H8.6c-.3-.7-.9-1.5-1.5-2.1A7 7 0 0 1 12 2Z" stroke="#1a1a1a" strokeWidth="1.5"/>
+          <path d="M9 19h6M10 22h4" stroke="#1a1a1a" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
+        <span className="font-medium" style={{ fontSize: 14 }}>Learn</span>
+      </div>
+
+      {/* Settings */}
+      <div style={{ cursor: "pointer", padding: 6, borderRadius: 8, display: "flex" }}>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="3" stroke="#1a1a1a" strokeWidth="1.5"/>
+          <path d="M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="#1a1a1a" strokeWidth="1.5" strokeLinecap="round"/>
+        </svg>
+      </div>
+    </div>
+  );
+}
+
+// ─── Desktop anytime bar ──────────────────────────────────────────────────────
+
+function DesktopAnyBar({
+  task, isSelected, onClick,
+}: {
+  task: TaskEntry;
+  isSelected: boolean;
+  onClick: () => void;
+}) {
+  const [checked, setChecked] = useState(task.initialChecked ?? false);
+
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        display: "flex", alignItems: "center",
+        height: 36, borderRadius: 8, padding: "0 10px",
+        background: task.accentColor,
+        cursor: "pointer", userSelect: "none", gap: 8,
+        marginBottom: 6,
+        outline: isSelected ? "2px solid rgba(0,0,0,0.25)" : "none",
+        outlineOffset: -2,
+        transition: `outline ${MS.dFast} ${MS.eOut}`,
+      }}
+    >
+      {/* Small icon (bookmark/anytime indicator) */}
+      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0 }}>
+        <path d="M3 2h8a1 1 0 0 1 1 1v9l-5-3-5 3V3a1 1 0 0 1 1-1Z" fill="rgba(255,255,255,0.7)"/>
+      </svg>
+
+      {/* Label */}
+      <span className="font-medium" style={{ fontSize: 13, color: "#fff", flex: 1, lineHeight: "1" }}>
+        {task.title}
       </span>
+
+      {/* Circle checkbox */}
+      <div
+        onClick={(e) => { e.stopPropagation(); setChecked((v) => !v); }}
+        style={{
+          width: 20, height: 20, borderRadius: "50%", flexShrink: 0,
+          border: checked ? "none" : "1.5px solid rgba(255,255,255,0.6)",
+          background: checked ? "rgba(255,255,255,0.9)" : "transparent",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          cursor: "pointer",
+          transition: `background ${MS.dCheck} ${MS.eOut}`,
+        }}
+      >
+        {checked && (
+          <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+            <path d="M1 4l3 3 5-6" stroke={task.accentColor} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Desktop schedule task card ───────────────────────────────────────────────
+
+function DesktopScheduleCard({
+  task, isSelected, onClick,
+}: {
+  task: TimedEntry;
+  isSelected: boolean;
+  onClick: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [checked,  setChecked]  = useState(false);
+  const total = task.tasks?.length ?? 0;
+
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        width: "100%", height: "100%",
+        background: "#fff",
+        borderRadius: 10,
+        border: isSelected ? `1.5px solid ${task.avatarColor}` : "1px solid rgba(0,0,0,0.09)",
+        overflow: "hidden", cursor: "pointer",
+        boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+        display: "flex", flexDirection: "column",
+        transition: `border ${MS.dFast} ${MS.eOut}`,
+      }}
+    >
+      {/* Header row */}
+      <div style={{ display: "flex", alignItems: "flex-start", padding: "10px 12px 10px 0", flex: 1, minHeight: 0 }}>
+        {/* Left accent bar */}
+        <div style={{ width: 4, alignSelf: "stretch", background: task.avatarColor, borderRadius: 2, margin: "0 10px", flexShrink: 0 }} />
+
+        {/* Text */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="font-bold" style={{ fontSize: 14, color: "#1a1a1a", lineHeight: "1.3" }}>
+            {task.title}
+          </div>
+          {total > 0 && (
+            <div
+              onClick={(e) => { e.stopPropagation(); setExpanded((v) => !v); }}
+              style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 3, cursor: "pointer", userSelect: "none", width: "fit-content" }}
+            >
+              <span style={{ fontSize: 12, color: "#999" }}>Task list ({total})</span>
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none"
+                style={{ transform: expanded ? "rotate(180deg)" : "rotate(0deg)", transition: `transform ${MS.dFast} ${MS.eOut}` }}
+              >
+                <path d="M2 4l3 3 3-3" stroke="#999" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+          )}
+        </div>
+
+        {/* Square checkbox */}
+        <div
+          onClick={(e) => { e.stopPropagation(); setChecked((v) => !v); }}
+          style={{
+            width: 20, height: 20, borderRadius: 5, flexShrink: 0, marginLeft: 8,
+            border: checked ? "none" : "1.5px solid #d0d0d0",
+            background: checked ? BLUE : "transparent",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer",
+            transition: `background ${MS.dCheck} ${MS.eOut}`,
+          }}
+        >
+          {checked && (
+            <svg width="11" height="9" viewBox="0 0 11 9" fill="none">
+              <path d="M1 5l4 4L12 1" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Desktop schedule view ────────────────────────────────────────────────────
+
+function DesktopSchedule({
+  day, selectedCardId, onCardSelect,
+}: {
+  day: typeof DAY_CONTENT[number];
+  selectedCardId: string;
+  onCardSelect: (id: string) => void;
+}) {
+  const hours = Array.from(
+    { length: DESKTOP_DAY_END - DESKTOP_DAY_START },
+    (_, i) => i + DESKTOP_DAY_START,
+  );
+
+  const anytime    = day?.anytime ?? [];
+  const timedTasks = (day?.planned ?? []).filter((p): p is TimedEntry => p.kind === "timed");
+
+  // "Due Today" = anytime tasks not yet completed (simple count for now)
+  const dueToday = anytime.length;
+
+  // Compute column positions for overlapping timed cards
+  type Slot = { task: TimedEntry; col: number; cols: number; start: number; end: number };
+  const slots: Slot[] = [];
+  for (const task of timedTasks) {
+    const range = desktopParseRange(task.timeRange);
+    if (!range) continue;
+    // Count how many already-placed tasks overlap
+    const overlapping = slots.filter((s) => s.start < range.end && s.end > range.start);
+    const usedCols = new Set(overlapping.map((s) => s.col));
+    let col = 0;
+    while (usedCols.has(col)) col++;
+    const cols = Math.max(col + 1, ...overlapping.map((s) => s.col + 1));
+    // Bump existing overlapping slots to reflect total column count
+    overlapping.forEach((s) => { s.cols = Math.max(s.cols, cols); });
+    slots.push({ task, col, cols, start: range.start, end: range.end });
+  }
+
+  const TIME_COL = 60; // width of the time-label column
+
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+
+      {/* ── Anytime section ── */}
+      <div style={{ padding: "12px 16px 10px", borderBottom: "1px solid rgba(0,0,0,0.07)", flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <span className="font-semibold" style={{ fontSize: 13, color: "#333" }}>Anytime</span>
+          <DueTodayBadge count={dueToday} />
+        </div>
+        {anytime.map((t) => (
+          <DesktopAnyBar
+            key={t.id} task={t}
+            isSelected={selectedCardId === t.id}
+            onClick={() => onCardSelect(t.id)}
+          />
+        ))}
+      </div>
+
+      {/* ── Timeline ── */}
+      <div style={{ flex: 1, overflowY: "auto", position: "relative", scrollbarWidth: "none" } as React.CSSProperties}>
+        <style>{`#desktop-timeline::-webkit-scrollbar { display: none; }`}</style>
+        <div id="desktop-timeline" style={{ position: "relative", height: (DESKTOP_DAY_END - DESKTOP_DAY_START) * DESKTOP_HOUR_H }}>
+
+          {/* Hour rows (grid lines + labels) */}
+          {hours.map((h) => {
+            const label = h < 12 ? `${h} AM` : h === 12 ? "12 PM" : `${h - 12} PM`;
+            return (
+              <div key={h} style={{
+                position: "absolute",
+                top: (h - DESKTOP_DAY_START) * DESKTOP_HOUR_H,
+                left: 0, right: 0, height: DESKTOP_HOUR_H,
+                display: "flex", alignItems: "flex-start",
+              }}>
+                {/* Time label */}
+                <div style={{
+                  width: TIME_COL, flexShrink: 0,
+                  textAlign: "right", paddingRight: 12, paddingTop: 2,
+                }}>
+                  <span style={{ fontSize: 11, color: "#bbb", fontFamily: "var(--font-inter)" }}>{label}</span>
+                </div>
+                {/* Horizontal rule */}
+                <div style={{ flex: 1, height: 1, background: "rgba(0,0,0,0.07)", marginTop: 7 }} />
+              </div>
+            );
+          })}
+
+          {/* Current time indicator */}
+          {DESKTOP_NOW_H >= DESKTOP_DAY_START && DESKTOP_NOW_H <= DESKTOP_DAY_END && (
+            <div style={{
+              position: "absolute",
+              top: (DESKTOP_NOW_H - DESKTOP_DAY_START) * DESKTOP_HOUR_H - 4,
+              left: 0, right: 0,
+              display: "flex", alignItems: "center",
+              pointerEvents: "none", zIndex: 10,
+            }}>
+              <div style={{ width: TIME_COL, display: "flex", justifyContent: "flex-end", paddingRight: 6, flexShrink: 0 }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#333" }} />
+              </div>
+              <div style={{ flex: 1, height: 1, background: "#333" }} />
+            </div>
+          )}
+
+          {/* Timed task cards */}
+          {slots.map(({ task, col, cols, start, end }) => {
+            const top    = (start - DESKTOP_DAY_START) * DESKTOP_HOUR_H + 2;
+            const height = Math.max((end - start) * DESKTOP_HOUR_H - 6, 60);
+            const contentW = `calc(100% - ${TIME_COL + 16}px)`;
+            const cardW  = cols === 1
+              ? contentW
+              : `calc((100% - ${TIME_COL + 16 + (cols - 1) * 6}px) / ${cols})`;
+            const cardLeft = cols === 1
+              ? TIME_COL + 8
+              : `calc(${TIME_COL + 8}px + (${col} * (100% - ${TIME_COL + 16 + (cols - 1) * 6}px) / ${cols} + ${col * 6}px))`;
+
+            return (
+              <div key={task.id} style={{
+                position: "absolute",
+                top, height,
+                width: cardW,
+                left: cardLeft,
+              }}>
+                <DesktopScheduleCard
+                  task={task}
+                  isSelected={selectedCardId === task.id}
+                  onClick={() => onCardSelect(task.id)}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Desktop screen ───────────────────────────────────────────────────────────
+
+function DesktopScreen() {
+  const [activeDay,      setActiveDay]      = useState<number>(CURRENT_DAY);
+  const [view,           setView]           = useState<CalendarView>("day");
+  const [selectedCardId, setSelectedCardId] = useState<string>("card-math-prep");
+
+  const day = DAY_CONTENT[activeDay];
+
+  // Selected task: search anytime first, then planned
+  const selectedTask: TaskEntry | null =
+    day?.anytime.find((t) => t.id === selectedCardId) ?? null;
+
+  const DAY_IDS = Object.keys(DAY_CONTENT).map(Number).sort((a, b) => a - b);
+  const navigateDay = (delta: number) => {
+    const idx    = DAY_IDS.indexOf(activeDay);
+    const newIdx = Math.max(0, Math.min(DAY_IDS.length - 1, idx + delta));
+    setActiveDay(DAY_IDS[newIdx]);
+    setSelectedCardId("");
+  };
+
+  return (
+    <div style={{
+      width: "100%", height: "100%",
+      display: "flex", flexDirection: "row",
+      background: "#fff",
+      fontFamily: "var(--font-inter)",
+      overflow: "hidden",
+    }}>
+      {/* Sidebar */}
+      <DesktopSidebarPanel task={selectedTask} />
+
+      {/* Main content */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <DesktopHeader
+          activeDay={activeDay}
+          view={view}
+          onViewChange={setView}
+          onPrevDay={() => navigateDay(-1)}
+          onNextDay={() => navigateDay(1)}
+        />
+        <DesktopSchedule
+          day={day}
+          selectedCardId={selectedCardId}
+          onCardSelect={setSelectedCardId}
+        />
+      </div>
     </div>
   );
 }
