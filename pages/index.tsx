@@ -3039,37 +3039,38 @@ function DesktopCalendarContent({
       {/* Rounded frame */}
       <div style={{
         height: "100%",
-        display: "flex", flexDirection: "column",
         background: "#fff",
         borderRadius: 16,
         border: "1px solid rgba(0,0,0,0.07)",
         overflow: "hidden",
       }}>
 
-        {/* ── Anytime ── */}
-        <div style={{ flexShrink: 0, padding: "12px 0 12px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-          <div className="flex items-center gap-2" style={{ marginBottom: 10, paddingLeft: DESKTOP_LABEL_W + 4 }}>
-            <span className="font-medium" style={{ fontSize: 14, color: "#666" }}>Anytime</span>
-            <DueTodayBadge count={dueToday} />
-          </div>
-          <div className="flex flex-col gap-2" style={{ paddingLeft: DESKTOP_LABEL_W }}>
-            {day?.anytime.map((c) => (
-              <TaskCard
-                key={c.id} id={c.id} title={c.title} accentColor={c.accentColor}
-                tasks={c.tasks ?? []} initialDoneMap={c.initialDoneMap}
-                initialChecked={c.initialChecked}
-                onProgressChange={onProgressChange}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* ── Scrollable timeline ── */}
+        {/* ── Single scrollable container (anytime + timeline) ── */}
         <div
-          id="desktop-timeline"
+          id="desktop-calendar-scroll"
           onClick={() => onFocusEntry(null)}
-          style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none" } as React.CSSProperties}
+          style={{ height: "100%", overflowY: "auto", scrollbarWidth: "none" } as React.CSSProperties}
         >
+
+          {/* Anytime section */}
+          <div style={{ padding: "12px 0 12px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+            <div className="flex items-center gap-2" style={{ marginBottom: 10, paddingLeft: DESKTOP_LABEL_W + 4 }}>
+              <span className="font-medium" style={{ fontSize: 14, color: "#666" }}>Anytime</span>
+              <DueTodayBadge count={dueToday} />
+            </div>
+            <div className="flex flex-col gap-2" style={{ paddingLeft: DESKTOP_LABEL_W }}>
+              {day?.anytime.map((c) => (
+                <TaskCard
+                  key={c.id} id={c.id} title={c.title} accentColor={c.accentColor}
+                  tasks={c.tasks ?? []} initialDoneMap={c.initialDoneMap}
+                  initialChecked={c.initialChecked}
+                  onProgressChange={onProgressChange}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Timeline — natural block height, no inner scroll */}
           <div style={{ position: "relative", height: totalH }}>
 
             {/* Label column background */}
@@ -3135,8 +3136,8 @@ function DesktopCalendarContent({
             </div>
 
           </div>
-        </div>
 
+        </div>
       </div>
     </div>
   );
@@ -3192,8 +3193,8 @@ function DesktopScreen() {
       overflow: "hidden",
     }}>
       <style>{`
-        #desktop-sidebar::-webkit-scrollbar  { display: none; }
-        #desktop-timeline::-webkit-scrollbar { display: none; }
+        #desktop-sidebar::-webkit-scrollbar          { display: none; }
+        #desktop-calendar-scroll::-webkit-scrollbar  { display: none; }
       `}</style>
 
       {/* ── Sidebar — 20% ── */}
