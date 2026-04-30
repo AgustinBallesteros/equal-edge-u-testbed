@@ -2900,28 +2900,24 @@ const DESKTOP_LABEL_W  = 80;  // px width of time-label column
 
 function DesktopTimelineCard({
   entry, startMin, endMin, colIndex, colCount,
-  focused, onFocus,
+  done, total, focused, onFocus, onCheckbox,
 }: {
   entry: TimedEntry;
   startMin: number; endMin: number;
   colIndex: number; colCount: number;
+  done: number; total: number;
   focused: boolean;
   onFocus: (id: string) => void;
+  onCheckbox: () => void;
 }) {
-  const top       = ((startMin - DESKTOP_TL_START * 60) / 60) * DESKTOP_PX_PER_H;
-  const height    = Math.max(((endMin - startMin) / 60) * DESKTOP_PX_PER_H, 44);
-  const widthPct  = 100 / colCount;
-  const leftPct   = colIndex * widthPct;
-  const CARD_GAP  = 16; // mirror TaskCard's mx-4
-  const taskCount = entry.tasks?.length ?? 0;
+  const top      = ((startMin - DESKTOP_TL_START * 60) / 60) * DESKTOP_PX_PER_H;
+  const height   = Math.max(((endMin - startMin) / 60) * DESKTOP_PX_PER_H, 44);
+  const widthPct = 100 / colCount;
+  const leftPct  = colIndex * widthPct;
+  const CARD_GAP = 16; // mirror TaskCard's mx-4
 
-  // Progress bar — mirrors TaskCard's vertical track
-  const total    = entry.tasks?.length ?? 0;
-  const doneCount = total > 0
-    ? Object.values(entry.initialDoneMap ?? {}).filter(Boolean).length
-    : 0;
-  const trackH = total > 0 ? 46 : 36;
-  const fillH  = Math.round(trackH * (total > 0 ? doneCount / total : 0));
+  const isAllDone = total > 0 && done === total;
+  const fillPct   = total > 0 ? done / total : 0;
 
   return (
     <div
@@ -2944,30 +2940,32 @@ function DesktopTimelineCard({
         userSelect: "none",
       }}
     >
-      {/* Content area — position:relative so progress track can anchor */}
+      {/* Content area — position:relative so progress track anchors here */}
       <div style={{ flex: 1, height: "100%", position: "relative", display: "flex", alignItems: "center", paddingRight: 4, minWidth: 0 }}>
-        {/* Vertical progress track */}
+        {/* Vertical progress track — fills card height */}
         <div style={{
           position: "absolute", left: 12,
-          top: "50%", transform: "translateY(-50%)",
-          width: 4, height: trackH, borderRadius: 2,
+          top: 10, bottom: 10,
+          width: 4, borderRadius: 2,
           background: `color-mix(in srgb, ${entry.avatarColor} 25%, transparent)`,
           overflow: "hidden",
         }}>
           <div style={{
             position: "absolute", bottom: 0, left: 0, right: 0,
-            height: `${fillH}px`, borderRadius: 2,
+            height: `${Math.round(fillPct * 100)}%`,
+            borderRadius: 2,
             background: entry.avatarColor,
+            transition: `height ${MS.dProgress} ${MS.eOut}`,
           }} />
         </div>
         {/* Text */}
         <div style={{ marginLeft: 24, minWidth: 0 }}>
-          <div className="font-bold" style={{ fontSize: 13, color: "#1a1a1a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <div className="font-bold" style={{ fontSize: 15, color: "#1a1a1a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {entry.title}
           </div>
-          {taskCount > 0 && (
+          {total > 0 && (
             <div className="flex items-center gap-1" style={{ marginTop: 2 }}>
-              <span style={{ fontSize: 11, color: "#888" }}>Task list ({taskCount})</span>
+              <span style={{ fontSize: 11, color: "#888" }}>Task list ({total})</span>
               <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                 <path d="M2 4l3 3 3-3" stroke="#bbb" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
@@ -2975,9 +2973,9 @@ function DesktopTimelineCard({
           )}
         </div>
       </div>
-      {/* Checkbox */}
-      <div style={{ display: "flex", alignItems: "center", paddingRight: 12, flexShrink: 0 }}>
-        <div style={{ width: 20, height: 20, borderRadius: 5, border: "1.5px solid #ddd" }} />
+      {/* Functional checkbox */}
+      <div style={{ display: "flex", alignItems: "center", paddingRight: 14, flexShrink: 0 }}>
+        <Checkbox checked={isAllDone} onToggle={onCheckbox} />
       </div>
     </div>
   );
@@ -2987,10 +2985,13 @@ function DesktopTimelineCard({
 
 function DesktopCalendarContent({
   activeDay, focusedId, onFocusEntry,
+  timedProgress, onTimelineCheckbox,
 }: {
   activeDay: number;
   focusedId: string | null;
   onFocusEntry: (id: string) => void;
+  timedProgress: Record<string, { done: number; total: number }>;
+  onTimelineCheckbox: (id: string) => void;
 }) {
   const day = DAY_CONTENT[activeDay];
 
@@ -3110,18 +3111,26 @@ function DesktopCalendarContent({
 
             {/* Task cards */}
             <div style={{ position: "absolute", top: 0, left: DESKTOP_LABEL_W, right: 0, bottom: 0, zIndex: 2 }}>
-              {timeLayout.map(({ entry, startMin, endMin, colIndex, colCount }) => (
-                <DesktopTimelineCard
-                  key={entry.id}
-                  entry={entry}
-                  startMin={startMin}
-                  endMin={endMin}
-                  colIndex={colIndex}
-                  colCount={colCount}
-                  focused={focusedId === entry.id}
-                  onFocus={onFocusEntry}
-                />
-              ))}
+              {timeLayout.map(({ entry, startMin, endMin, colIndex, colCount }) => {
+                const p     = timedProgress[entry.id];
+                const total = entry.tasks?.length ?? 0;
+                const done  = p?.done ?? 0;
+                return (
+                  <DesktopTimelineCard
+                    key={entry.id}
+                    entry={entry}
+                    startMin={startMin}
+                    endMin={endMin}
+                    colIndex={colIndex}
+                    colCount={colCount}
+                    done={done}
+                    total={total}
+                    focused={focusedId === entry.id}
+                    onFocus={onFocusEntry}
+                    onCheckbox={() => onTimelineCheckbox(entry.id)}
+                  />
+                );
+              })}
             </div>
 
           </div>
@@ -3138,6 +3147,27 @@ function DesktopScreen() {
   const [activeDay, setActiveDay] = useState<number>(CURRENT_DAY);
   const [view,      setView]      = useState<CalendarView>("day");
   const [focusedId, setFocusedId] = useState<string | null>(null);
+
+  // ── Shared subtask progress (sidebar TimedCard → timeline card) ───────────
+  const [timedProgress, setTimedProgress] =
+    useState<Record<string, { done: number; total: number }>>({});
+  const [forceSignals, setForceSignals] =
+    useState<Record<string, ForceSignal>>({});
+
+  const onTimedProgressChange = useCallback((id: string, done: number, total: number) => {
+    setTimedProgress((prev) => ({ ...prev, [id]: { done, total } }));
+  }, []);
+
+  // Clicking the timeline checkbox fires a force-signal to the sidebar TimedCard,
+  // which then updates its subtasks and reports back via onProgressChange.
+  const onTimelineCheckbox = useCallback((id: string) => {
+    const cur     = timedProgress[id];
+    const allDone = cur ? cur.done === cur.total && cur.total > 0 : false;
+    setForceSignals((prev) => ({
+      ...prev,
+      [id]: { v: (prev[id]?.v ?? 0) + 1, allDone: !allDone },
+    }));
+  }, [timedProgress]);
 
   // Refs for sidebar cards — used to scroll focused card into view
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -3193,6 +3223,8 @@ function DesktopScreen() {
               tasks={entry.tasks}
               initialExpanded={true}
               noHorizontalMargin={true}
+              onProgressChange={onTimedProgressChange}
+              forceSignal={forceSignals[entry.id]}
             />
           </div>
         ))}
@@ -3217,6 +3249,8 @@ function DesktopScreen() {
           activeDay={activeDay}
           focusedId={focusedId}
           onFocusEntry={setFocusedId}
+          timedProgress={timedProgress}
+          onTimelineCheckbox={onTimelineCheckbox}
         />
 
         {/* FAB */}
