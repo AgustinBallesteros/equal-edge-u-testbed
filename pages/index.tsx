@@ -2912,6 +2912,7 @@ function DesktopTimelineCard({
   const height    = Math.max(((endMin - startMin) / 60) * DESKTOP_PX_PER_H, 44);
   const widthPct  = 100 / colCount;
   const leftPct   = colIndex * widthPct;
+  const CARD_GAP  = 16; // mirror TaskCard's mx-4
   const taskCount = entry.tasks?.length ?? 0;
 
   // Progress bar — mirrors TaskCard's vertical track
@@ -2928,8 +2929,8 @@ function DesktopTimelineCard({
       style={{
         position: "absolute",
         top,
-        left: `calc(${leftPct}% + 4px)`,
-        width: `calc(${widthPct}% - 8px)`,
+        left: `calc(${leftPct}% + ${CARD_GAP}px)`,
+        width: `calc(${widthPct}% - ${CARD_GAP * 2}px)`,
         height,
         background: "#fff",
         borderRadius: 12,
@@ -3017,6 +3018,20 @@ function DesktopCalendarContent({
   );
   const totalH = hours.length * DESKTOP_PX_PER_H;
 
+  // Current-time tracker — updates every 30 s
+  const [nowMin, setNowMin] = useState(() => {
+    const d = new Date();
+    return d.getHours() * 60 + d.getMinutes();
+  });
+  useEffect(() => {
+    const tick = () => {
+      const d = new Date();
+      setNowMin(d.getHours() * 60 + d.getMinutes());
+    };
+    const id = setInterval(tick, 30_000);
+    return () => clearInterval(id);
+  }, []);
+
   return (
     /* Outer shell — margin gap around the rounded frame */
     <div style={{ flex: 1, overflow: "hidden", background: "#fff", padding: "0 12px 12px 12px" }}>
@@ -3032,11 +3047,11 @@ function DesktopCalendarContent({
 
         {/* ── Anytime ── */}
         <div style={{ flexShrink: 0, padding: "12px 0 12px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-          <div className="flex items-center gap-2" style={{ marginBottom: 10, paddingLeft: 20 }}>
+          <div className="flex items-center gap-2" style={{ marginBottom: 10, paddingLeft: DESKTOP_LABEL_W + 4 }}>
             <span className="font-medium" style={{ fontSize: 14, color: "#666" }}>Anytime</span>
             <DueTodayBadge count={dueToday} />
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2" style={{ paddingLeft: DESKTOP_LABEL_W }}>
             {day?.anytime.map((c) => (
               <TaskCard
                 key={c.id} id={c.id} title={c.title} accentColor={c.accentColor}
@@ -3082,8 +3097,19 @@ function DesktopCalendarContent({
               ];
             })}
 
+            {/* Current-time tracker */}
+            {(() => {
+              const lo = DESKTOP_TL_START * 60, hi = DESKTOP_TL_END * 60;
+              if (nowMin < lo || nowMin > hi) return null;
+              const nowY = ((nowMin - lo) / 60) * DESKTOP_PX_PER_H;
+              return [
+                <div key="tl-line" style={{ position: "absolute", top: nowY, left: DESKTOP_LABEL_W, right: 0, height: 1, background: "#727272", zIndex: 3 }} />,
+                <div key="tl-dot"  style={{ position: "absolute", top: nowY - 5, left: DESKTOP_LABEL_W - 5, width: 10, height: 10, borderRadius: "50%", background: "#727272", zIndex: 3 }} />,
+              ];
+            })()}
+
             {/* Task cards */}
-            <div style={{ position: "absolute", top: 0, left: DESKTOP_LABEL_W, right: 12, bottom: 0, zIndex: 2 }}>
+            <div style={{ position: "absolute", top: 0, left: DESKTOP_LABEL_W, right: 0, bottom: 0, zIndex: 2 }}>
               {timeLayout.map(({ entry, startMin, endMin, colIndex, colCount }) => (
                 <DesktopTimelineCard
                   key={entry.id}
