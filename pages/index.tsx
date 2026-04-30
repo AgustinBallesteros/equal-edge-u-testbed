@@ -2705,28 +2705,24 @@ function DesktopScreen() {
     }}>
       {/* Sidebar — 20% */}
       <div style={{
-        width: "20%", height: "100%", flexShrink: 0,
+        width: "20%", flexShrink: 0,
         background: "#fff",
         borderRight: "1px solid rgba(0,0,0,0.07)",
         overflowY: "auto",
         display: "flex", flexDirection: "column", gap: 8,
         padding: "12px 0 24px",
       }}>
-        {DAY_CONTENT[2].planned.map((entry) =>
-          entry.kind === "gap" ? (
-            <GapBar key={entry.id} id={entry.id} label={entry.label} />
-          ) : (
-            <TimedCard
-              key={entry.id}
-              id={entry.id}
-              title={entry.title}
-              timeRange={entry.timeRange}
-              avatarColor={entry.avatarColor}
-              tasks={entry.tasks}
-              initialExpanded={true}
-            />
-          )
-        )}
+        {(DAY_CONTENT[2].planned.filter((e) => e.kind === "timed") as TimedEntry[]).map((entry) => (
+          <TimedCard
+            key={entry.id}
+            id={entry.id}
+            title={entry.title}
+            timeRange={entry.timeRange}
+            avatarColor={entry.avatarColor}
+            tasks={entry.tasks}
+            initialExpanded={true}
+          />
+        ))}
       </div>
 
       {/* Main content — 80% */}
