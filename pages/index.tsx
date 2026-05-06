@@ -311,16 +311,16 @@ function DayRing({ progress, W = 44, H = 52, RX = 12 }: { progress: number; W?: 
 
 // April 2026: Wed=1, Thu=2, Fri=3, Sat=4, Sun=5, Mon=6, Tue=7
 const WEEK_DAYS = [
-  { label: "S", fullLabel: "Sun", num: "5",  id: 1  },
-  { label: "M", fullLabel: "Mon", num: "6",  id: 2  },
-  { label: "T", fullLabel: "Tue", num: "7",  id: 3  },
-  { label: "W", fullLabel: "Wed", num: "1",  id: 4  },
-  { label: "T", fullLabel: "Thu", num: "2",  id: 5  },
-  { label: "F", fullLabel: "Fri", num: "3",  id: 6  },
-  { label: "S", fullLabel: "Sat", num: "4",  id: 7  },
-  { label: "W", fullLabel: "Wed", num: "8",  id: 8  },
-  { label: "T", fullLabel: "Thu", num: "9",  id: 9  },
-  { label: "F", fullLabel: "Fri", num: "10", id: 10 },
+  { label: "W", fullLabel: "Wed", num: "1",  id: 4  },  // April 1
+  { label: "T", fullLabel: "Thu", num: "2",  id: 5  },  // April 2
+  { label: "F", fullLabel: "Fri", num: "3",  id: 6  },  // April 3
+  { label: "S", fullLabel: "Sat", num: "4",  id: 7  },  // April 4
+  { label: "S", fullLabel: "Sun", num: "5",  id: 1  },  // April 5
+  { label: "M", fullLabel: "Mon", num: "6",  id: 2  },  // April 6 ← CURRENT_DAY
+  { label: "T", fullLabel: "Tue", num: "7",  id: 3  },  // April 7
+  { label: "W", fullLabel: "Wed", num: "8",  id: 8  },  // April 8
+  { label: "T", fullLabel: "Thu", num: "9",  id: 9  },  // April 9
+  { label: "F", fullLabel: "Fri", num: "10", id: 10 },  // April 10
 ];
 
 function WeekStrip({
@@ -3258,17 +3258,7 @@ function DesktopCalendarContent({
             </div>
             <div className="flex flex-col gap-2" style={{ paddingLeft: DESKTOP_LABEL_W }}>
               {day?.anytime.map((c) => (
-                <div
-                  key={c.id}
-                  onClick={(e) => { e.stopPropagation(); onSelectEntry(c.id); }}
-                >
-                  <TaskCard
-                    id={c.id} title={c.title} accentColor={c.accentColor}
-                    tasks={c.tasks ?? []} initialDoneMap={c.initialDoneMap}
-                    initialChecked={c.initialChecked}
-                    onProgressChange={onProgressChange}
-                  />
-                </div>
+                <DesktopColumnAnytimeCard key={c.id} entry={c} onSelect={onSelectEntry} />
               ))}
             </div>
           </div>
@@ -3588,7 +3578,7 @@ function DesktopWeekView({
       style={{ display: "flex" }}
       onClick={() => onSelectEntry(null)}
     >
-      {[1, 2, 3, 4, 5, 6, 7].map((dayId, i, arr) => (
+      {[4, 5, 6, 7, 1, 2, 3].map((dayId, i, arr) => (
         <DesktopDayColumn
           key={dayId}
           dayId={dayId}
