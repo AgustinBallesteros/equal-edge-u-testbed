@@ -71,7 +71,7 @@ function StatusBar() {
   );
 }
 
-type CalendarView = "day" | "3day" | "month";
+type CalendarView = "day" | "week" | "3day" | "month";
 
 const CALENDAR_VIEWS: { id: CalendarView; label: string; icon: React.ReactNode }[] = [
   {
@@ -80,6 +80,22 @@ const CALENDAR_VIEWS: { id: CalendarView; label: string; icon: React.ReactNode }
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
         <path d="M17.75 3C19.5449 3 21 4.45507 21 6.25V17.75C21 19.5449 19.5449 21 17.75 21H6.25C4.45507 21 3 19.5449 3 17.75V6.25C3 4.45507 4.45507 3 6.25 3H17.75ZM17.75 4.5H6.25C5.2835 4.5 4.5 5.2835 4.5 6.25V17.75C4.5 18.7165 5.2835 19.5 6.25 19.5H17.75C18.7165 19.5 19.5 18.7165 19.5 17.75V6.25C19.5 5.2835 18.7165 4.5 17.75 4.5ZM16.25 11C16.6642 11 17 11.3358 17 11.75V16.25C17 16.6642 16.6642 17 16.25 17H7.75C7.33579 17 7 16.6642 7 16.25V11.75C7 11.3358 7.33579 11 7.75 11H16.25ZM15.5 12.5H8.5V15.5H15.5V12.5ZM7.75 7.25H16.25C16.6642 7.25 17 7.58579 17 8C17 8.3797 16.7178 8.69349 16.3518 8.74315L16.25 8.75H7.75C7.33579 8.75 7 8.41421 7 8C7 7.6203 7.28215 7.30651 7.64823 7.25685L7.75 7.25H16.25H7.75Z" fill="currentColor" />
+      </svg>
+    ),
+  },
+  {
+    id: "week",
+    label: "Week",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <g clipPath="url(#clip-week)">
+          <path d="M14.75 0C16.5449 0 18 1.45507 18 3.25V14.75C18 16.5449 16.5449 18 14.75 18H3.25C1.45507 18 0 16.5449 0 14.75V3.25C0 1.45507 1.45507 0 3.25 0H14.75ZM14.75 1.5H3.25C2.2835 1.5 1.5 2.2835 1.5 3.25V14.75C1.5 15.7165 2.2835 16.5 3.25 16.5H14.75C15.7165 16.5 16.5 15.7165 16.5 14.75V3.25C16.5 2.2835 15.7165 1.5 14.75 1.5ZM4.75 10.5C5.44036 10.5 6 11.0596 6 11.75C6 12.4404 5.44036 13 4.75 13C4.05964 13 3.5 12.4404 3.5 11.75C3.5 11.0596 4.05964 10.5 4.75 10.5ZM9 10.5C9.69036 10.5 10.25 11.0596 10.25 11.75C10.25 12.4404 9.69036 13 9 13C8.30964 13 7.75 12.4404 7.75 11.75C7.75 11.0596 8.30964 10.5 9 10.5ZM4.75 5.5C5.44036 5.5 6 6.05964 6 6.75C6 7.44036 5.44036 8 4.75 8C4.05964 8 3.5 7.44036 3.5 6.75C3.5 6.05964 4.05964 5.5 4.75 5.5ZM9 5.5C9.69036 5.5 10.25 6.05964 10.25 6.75C10.25 7.44036 9.69036 8 9 8C8.30964 8 7.75 7.44036 7.75 6.75C7.75 6.05964 8.30964 5.5 9 5.5ZM13.25 5.5C13.9404 5.5 14.5 6.05964 14.5 6.75C14.5 7.44036 13.9404 8 13.25 8C12.5596 8 12 7.44036 12 6.75C12 6.05964 12.5596 5.5 13.25 5.5Z" fill="#242424"/>
+        </g>
+        <defs>
+          <clipPath id="clip-week">
+            <rect width="18" height="18" fill="white"/>
+          </clipPath>
+        </defs>
       </svg>
     ),
   },
@@ -2736,6 +2752,26 @@ function DesktopHeader({
       background: "#fff",
     }}>
 
+      {/* Prev / Next day */}
+      {[
+        { label: "prev", onClick: onPrevDay, path: "M9 3L4 8l5 5" },
+        { label: "next", onClick: onNextDay, path: "M4 3l5 5-5 5" },
+      ].map(({ label, onClick, path }) => (
+        <div
+          key={label}
+          onClick={onClick}
+          style={{
+            width: 34, height: 34, borderRadius: 10, background: "#F2F2F2",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            cursor: "pointer", userSelect: "none", flexShrink: 0,
+          }}
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d={path} stroke="#444" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
+      ))}
+
       {/* Date — keyed so it fades in on every day change */}
       <span
         key={activeDay}
@@ -2759,12 +2795,12 @@ function DesktopHeader({
           transition: "opacity 200ms ease",
         }}
       >
-          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M15 7.65H3M5.33333 15.75C4.21323 15.75 4.51984 15.75 4.09202 15.5293C3.71569 15.3351 3.40973 15.0254 3.21799 14.6443C3 14.2112 3 13.6441 3 12.51V6.84C3 5.70589 3 5.13884 3.21799 4.70567C3.40973 4.32464 3.71569 4.01486 4.09202 3.82071C4.51984 3.6 5.0799 3.6 6.2 3.6H11.8C12.9201 3.6 13.4802 3.6 13.908 3.82071C14.2843 4.01486 14.5903 4.32464 14.782 4.70567C15 5.13884 15 5.70589 15 6.84V12.51C15 13.6441 15 14.2112 14.782 14.6443C14.5903 15.0254 14.2843 15.3351 13.908 15.5293C13.4802 15.75 13.7868 15.75 12.6667 15.75M11.6667 2.25V4.95M6.33333 2.25V4.95" stroke="black" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M7.5 13.8214L9 15.75M9 15.75L10.5 13.8214M9 15.75V11.25" stroke="black" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          <span className="font-medium" style={{ fontSize: 13 }}>Today</span>
-        </div>
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M15 7.65H3M5.33333 15.75C4.21323 15.75 4.51984 15.75 4.09202 15.5293C3.71569 15.3351 3.40973 15.0254 3.21799 14.6443C3 14.2112 3 13.6441 3 12.51V6.84C3 5.70589 3 5.13884 3.21799 4.70567C3.40973 4.32464 3.71569 4.01486 4.09202 3.82071C4.51984 3.6 5.0799 3.6 6.2 3.6H11.8C12.9201 3.6 13.4802 3.6 13.908 3.82071C14.2843 4.01486 14.5903 4.32464 14.782 4.70567C15 5.13884 15 5.70589 15 6.84V12.51C15 13.6441 15 14.2112 14.782 14.6443C14.5903 15.0254 14.2843 15.3351 13.908 15.5293C13.4802 15.75 13.7868 15.75 12.6667 15.75M11.6667 2.25V4.95M6.33333 2.25V4.95" stroke="black" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M7.5 13.8214L9 15.75M9 15.75L10.5 13.8214M9 15.75V11.25" stroke="black" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+        <span className="font-medium" style={{ fontSize: 13 }}>Today</span>
+      </div>
 
       {/* View picker */}
       <div ref={dropRef} style={{ position: "relative", flexShrink: 0 }}>
@@ -2778,7 +2814,6 @@ function DesktopHeader({
         >
           {active.icon}
           <span className="font-medium" style={{ fontSize: 13 }}>{active.label}</span>
-          {/* Chevron indicator */}
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
             <path d="M3 4.5l3 3 3-3" stroke="#666" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
@@ -2819,26 +2854,6 @@ function DesktopHeader({
           })}
         </div>
       </div>
-
-      {/* Prev / Next day */}
-      {[
-        { label: "prev", onClick: onPrevDay, path: "M9 3L4 8l5 5" },
-        { label: "next", onClick: onNextDay, path: "M4 3l5 5-5 5" },
-      ].map(({ label, onClick, path }) => (
-        <div
-          key={label}
-          onClick={onClick}
-          style={{
-            width: 34, height: 34, borderRadius: 10, background: "#F2F2F2",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            cursor: "pointer", userSelect: "none", flexShrink: 0,
-          }}
-        >
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path d={path} stroke="#444" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </div>
-      ))}
 
       {/* Spacer */}
       <div style={{ flex: 1 }} />
