@@ -2781,25 +2781,29 @@ function DesktopHeader({
         {fullDayName} {dayInfo?.num} , April 2026
       </span>
 
-      {/* Jump-to-today — always rendered to avoid layout shift; fades in/out */}
-      <div
-        onClick={activeDay !== CURRENT_DAY ? onTodayJump : undefined}
-        className="flex items-center gap-1.5 px-3"
-        style={{
-          background: "#F2F2F2", height: 34, borderRadius: 10,
-          cursor: activeDay !== CURRENT_DAY ? "pointer" : "default",
-          userSelect: "none", color: "#242424",
-          flexShrink: 0,
-          opacity: activeDay !== CURRENT_DAY ? 1 : 0,
-          pointerEvents: activeDay !== CURRENT_DAY ? "auto" : "none",
-          transition: "opacity 200ms ease",
-        }}
-      >
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M15 7.65H3M5.33333 15.75C4.21323 15.75 4.51984 15.75 4.09202 15.5293C3.71569 15.3351 3.40973 15.0254 3.21799 14.6443C3 14.2112 3 13.6441 3 12.51V6.84C3 5.70589 3 5.13884 3.21799 4.70567C3.40973 4.32464 3.71569 4.01486 4.09202 3.82071C4.51984 3.6 5.0799 3.6 6.2 3.6H11.8C12.9201 3.6 13.4802 3.6 13.908 3.82071C14.2843 4.01486 14.5903 4.32464 14.782 4.70567C15 5.13884 15 5.70589 15 6.84V12.51C15 13.6441 15 14.2112 14.782 14.6443C14.5903 15.0254 14.2843 15.3351 13.908 15.5293C13.4802 15.75 13.7868 15.75 12.6667 15.75M11.6667 2.25V4.95M6.33333 2.25V4.95" stroke="black" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-          <path d="M7.5 13.8214L9 15.75M9 15.75L10.5 13.8214M9 15.75V11.25" stroke="black" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-        <span className="font-medium" style={{ fontSize: 13 }}>Today</span>
+      {/* Jump-to-today — collapses width + fades when on current day */}
+      <div style={{
+        overflow: "hidden", flexShrink: 0,
+        maxWidth: activeDay !== CURRENT_DAY ? 150 : 0,
+        opacity: activeDay !== CURRENT_DAY ? 1 : 0,
+        pointerEvents: activeDay !== CURRENT_DAY ? "auto" : "none",
+        transition: "max-width 200ms ease, opacity 200ms ease",
+      }}>
+        <div
+          onClick={onTodayJump}
+          className="flex items-center gap-1.5 px-3"
+          style={{
+            background: "#F2F2F2", height: 34, borderRadius: 10,
+            cursor: "pointer", userSelect: "none", color: "#242424",
+            whiteSpace: "nowrap",
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M15 7.65H3M5.33333 15.75C4.21323 15.75 4.51984 15.75 4.09202 15.5293C3.71569 15.3351 3.40973 15.0254 3.21799 14.6443C3 14.2112 3 13.6441 3 12.51V6.84C3 5.70589 3 5.13884 3.21799 4.70567C3.40973 4.32464 3.71569 4.01486 4.09202 3.82071C4.51984 3.6 5.0799 3.6 6.2 3.6H11.8C12.9201 3.6 13.4802 3.6 13.908 3.82071C14.2843 4.01486 14.5903 4.32464 14.782 4.70567C15 5.13884 15 5.70589 15 6.84V12.51C15 13.6441 15 14.2112 14.782 14.6443C14.5903 15.0254 14.2843 15.3351 13.908 15.5293C13.4802 15.75 13.7868 15.75 12.6667 15.75M11.6667 2.25V4.95M6.33333 2.25V4.95" stroke="black" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M7.5 13.8214L9 15.75M9 15.75L10.5 13.8214M9 15.75V11.25" stroke="black" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          <span className="font-medium" style={{ fontSize: 13 }}>Today</span>
+        </div>
       </div>
 
       {/* View picker */}
