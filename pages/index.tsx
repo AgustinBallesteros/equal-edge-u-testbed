@@ -3816,7 +3816,11 @@ function DesktopScreen() {
                   accentColor={selectedFound.entry.accentColor}
                   tasks={selectedFound.entry.tasks ?? []}
                   initialDoneMap={allEntryDoneMaps[selectedFound.entry.id] ?? selectedFound.entry.initialDoneMap}
-                  initialChecked={selectedFound.entry.initialChecked}
+                  initialChecked={
+                    (selectedFound.entry.tasks?.length ?? 0) === 0
+                      ? ((allDayProgress[selectedFound.dayId]?.[selectedFound.entry.id]?.done ?? 0) > 0)
+                      : selectedFound.entry.initialChecked
+                  }
                   onProgressChange={dtProgressHandlers[selectedFound.dayId]}
                   onDoneMapChange={onEntryDoneMapChange}
                 />
