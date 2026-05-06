@@ -3174,6 +3174,174 @@ function DesktopCalendarContent({
   );
 }
 
+// ─── Desktop 3-day components ─────────────────────────────────────────────────
+
+function DesktopDayColumn({
+  dayId, currentDay, progressMap, onProgressChange, onSelectEntry, showDivider,
+}: {
+  dayId: number;
+  currentDay: number;
+  progressMap: Record<string, { done: number; total: number }>;
+  onProgressChange: (id: string, done: number, total: number) => void;
+  onSelectEntry: (id: string | null) => void;
+  showDivider: boolean;
+}) {
+  const day     = DAY_CONTENT[dayId];
+  const dayInfo = WEEK_DAYS.find((d) => d.id === dayId)!;
+  const isToday = dayId === currentDay;
+
+  const headerCardRef = useRef<HTMLDivElement>(null);
+  const [cardWidth, setCardWidth] = useState(80);
+  useEffect(() => {
+    const el = headerCardRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => setCardWidth(entries[0].contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const { rDone, rTotal } = Object.values(progressMap).reduce(
+    (acc, e) => ({ rDone: acc.rDone + e.done, rTotal: acc.rTotal + e.total }),
+    { rDone: 0, rTotal: 0 }
+  );
+  const ringProgress = rTotal > 0 ? rDone / rTotal : 0;
+
+  const anytime      = day?.anytime ?? [];
+  const timedEntries = (day?.planned ?? []).filter((e): e is TimedEntry => e.kind === "timed");
+
+  return (
+    <div style={{
+      flex: 1, minWidth: 0,
+      borderRight: showDivider ? "1px solid rgba(0,0,0,0.08)" : "none",
+      display: "flex", flexDirection: "column",
+    }}>
+      {/* Day header */}
+      <div style={{ padding: "8px 8px 4px", flexShrink: 0 }}>
+        <div
+          ref={headerCardRef}
+          style={{
+            position: "relative", borderRadius: 12,
+            background: isToday ? `color-mix(in srgb, ${BLUE} 8%, #F4F4F4)` : "#F4F4F4",
+            height: 62, display: "flex", flexDirection: "column",
+            alignItems: "center", justifyContent: "center",
+          }}
+        >
+          <DayRing progress={ringProgress} W={cardWidth} H={62} RX={12} />
+          <span className="font-semibold" style={{ fontSize: 13, color: isToday ? BLUE : "#000", lineHeight: "1.15" }}>
+            {dayInfo.fullLabel}
+          </span>
+          <span className="font-bold" style={{ fontSize: 15, color: isToday ? BLUE : "#3a3a3a", marginTop: 1 }}>
+            {dayInfo.num}
+          </span>
+        </div>
+      </div>
+
+      {/* Cards */}
+      <div style={{ padding: "4px 8px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+        {anytime.length > 0 && (
+          <>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "#888" }}>Anytime</span>
+            {anytime.map((c) => (
+              <TaskCard
+                key={c.id} id={c.id} title={c.title} accentColor={c.accentColor}
+                tasks={c.tasks ?? []} initialDoneMap={c.initialDoneMap}
+                initialChecked={c.initialChecked}
+                onProgressChange={onProgressChange}
+              />
+            ))}
+          </>
+        )}
+        {timedEntries.length > 0 && (
+          <>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "#888", marginTop: anytime.length > 0 ? 4 : 0 }}>Scheduled</span>
+            {timedEntries.map((entry) => (
+              <div
+                key={entry.id}
+                onClick={(e) => { e.stopPropagation(); onSelectEntry(entry.id); }}
+                style={{ cursor: "pointer" }}
+              >
+                <TimedCard
+                  id={entry.id}
+                  title={entry.title}
+                  timeRange={entry.timeRange}
+                  avatarColor={entry.avatarColor}
+                  tasks={entry.tasks}
+                  initialExpanded={false}
+                  noHorizontalMargin={true}
+                  onProgressChange={onProgressChange}
+                />
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function DesktopThreeDayView({
+  start, onStartChange, currentDay, progressMaps, progressHandlers, onSelectEntry,
+}: {
+  start: number;
+  onStartChange: (s: number) => void;
+  currentDay: number;
+  progressMaps: Record<number, Record<string, { done: number; total: number }>>;
+  progressHandlers: Record<number, (id: string, done: number, total: number) => void>;
+  onSelectEntry: (id: string | null) => void;
+}) {
+  const [visibleStart, setVisibleStart] = useState(start);
+  const [exitStart,    setExitStart]    = useState<number | null>(null);
+  const [slideDir,     setSlideDir]     = useState<"left" | "right" | null>(null);
+  const animTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (start === visibleStart) return;
+    const dir = start > visibleStart ? "left" : "right";
+    if (animTimer.current) clearTimeout(animTimer.current);
+    setExitStart(visibleStart);
+    setSlideDir(dir);
+    setVisibleStart(start);
+    animTimer.current = setTimeout(() => {
+      setExitStart(null);
+      setSlideDir(null);
+    }, TD_ANIM_MS + 20);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [start]);
+
+  const getDays      = (s: number) => [s, s + 1, s + 2].filter((d) => d >= 1 && d <= 7);
+  const slideInAnim  = slideDir === "left" ? "tdSlideInRight" : "tdSlideInLeft";
+  const slideOutAnim = slideDir === "left" ? "tdSlideOutLeft" : "tdSlideOutRight";
+
+  const renderColumns = (s: number) =>
+    getDays(s).map((dayId, i, arr) => (
+      <DesktopDayColumn
+        key={dayId} dayId={dayId} currentDay={currentDay}
+        progressMap={progressMaps[dayId] ?? {}}
+        onProgressChange={progressHandlers[dayId]}
+        onSelectEntry={onSelectEntry}
+        showDivider={i < arr.length - 1}
+      />
+    ));
+
+  return (
+    <div
+      style={{ position: "relative", overflow: "hidden" }}
+      onClick={() => onSelectEntry(null)}
+    >
+      {exitStart !== null && slideDir && (
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, display: "flex",
+          animation: `${slideOutAnim} ${TD_ANIM_MS}ms ${MS.eOut} both` }}>
+          {renderColumns(exitStart)}
+        </div>
+      )}
+      <div key={visibleStart} style={{ display: "flex",
+        animation: slideDir ? `${slideInAnim} ${TD_ANIM_MS}ms ${MS.eOut} both` : undefined }}>
+        {renderColumns(visibleStart)}
+      </div>
+    </div>
+  );
+}
+
 // ─── Desktop screen ───────────────────────────────────────────────────────────
 
 function DesktopScreen() {
@@ -3293,6 +3461,10 @@ function DesktopScreen() {
           to   { opacity: 1; transform: translateY(0);   }
         }
         .dt-header-fade { animation: dtHeaderFade 180ms cubic-bezier(0.25,0.46,0.45,0.94) both; }
+        @keyframes tdSlideInRight  { from { transform: translateX(100%); } to { transform: translateX(0); } }
+        @keyframes tdSlideInLeft   { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+        @keyframes tdSlideOutLeft  { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+        @keyframes tdSlideOutRight { from { transform: translateX(0); } to { transform: translateX(100%); } }
       `}</style>
 
       {/* ── Sidebar — always visible ── */}
@@ -3361,14 +3533,13 @@ function DesktopScreen() {
         {view === "3day" ? (
           /* 3-day view scrolls internally */
           <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none" } as React.CSSProperties}>
-            <ThreeDayView
+            <DesktopThreeDayView
               start={threeDayStart}
               onStartChange={setThreeDayStart}
               currentDay={CURRENT_DAY}
               progressMaps={allDayProgress}
               progressHandlers={dtProgressHandlers}
-              onForceSignal={() => {}}
-              bottomPadding={0}
+              onSelectEntry={setSelectedId}
             />
           </div>
         ) : (
