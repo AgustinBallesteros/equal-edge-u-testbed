@@ -3347,6 +3347,90 @@ function DesktopCalendarContent({
 
 // ─── Desktop 3-day components ─────────────────────────────────────────────────
 
+function DesktopColumnAnytimeCard({ entry, onSelect }: {
+  entry: TaskEntry;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <div
+      onClick={(e) => { e.stopPropagation(); onSelect(entry.id); }}
+      style={{
+        display: "flex", alignItems: "center", gap: 7,
+        padding: "6px 10px", borderRadius: 10,
+        background: `color-mix(in srgb, ${entry.accentColor} 10%, #fff)`,
+        boxShadow: "0 1px 4px rgba(0,0,0,0.06)",
+        cursor: "pointer", userSelect: "none",
+      }}
+    >
+      <div style={{ width: 7, height: 7, borderRadius: "50%", background: entry.accentColor, flexShrink: 0 }} />
+      <span style={{
+        fontSize: 12, fontWeight: 600, color: "#1a1a1a", flex: 1, minWidth: 0,
+        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+      }}>
+        {entry.title}
+      </span>
+    </div>
+  );
+}
+
+function DesktopColumnTimedCard({ entry, progressMap, onProgressChange, onSelect }: {
+  entry: TimedEntry;
+  progressMap: Record<string, { done: number; total: number }>;
+  onProgressChange: (id: string, done: number, total: number) => void;
+  onSelect: (id: string) => void;
+}) {
+  const p         = progressMap[entry.id];
+  const total     = entry.tasks?.length ?? 0;
+  const done      = p?.done ?? 0;
+  const fillPct   = total > 0 ? done / total : 0;
+  const isAllDone = total > 0 && done === total;
+
+  const handleCheckbox = () => {
+    const newDone = isAllDone ? 0 : total;
+    onProgressChange(entry.id, newDone, total);
+  };
+
+  return (
+    <div
+      onClick={(e) => { e.stopPropagation(); onSelect(entry.id); }}
+      style={{
+        display: "flex", alignItems: "center",
+        borderRadius: 12, boxShadow: CARD_SHADOW,
+        background: "#fff", overflow: "hidden",
+        cursor: "pointer", userSelect: "none", height: 56,
+      }}
+    >
+      {/* Vertical progress track */}
+      <div style={{
+        position: "relative", width: 4, alignSelf: "stretch",
+        margin: "8px 0 8px 12px", borderRadius: 2, flexShrink: 0,
+        background: `color-mix(in srgb, ${entry.avatarColor} 25%, transparent)`,
+        overflow: "hidden",
+      }}>
+        <div style={{
+          position: "absolute", bottom: 0, left: 0, right: 0,
+          height: `${Math.round(fillPct * 100)}%`,
+          borderRadius: 2, background: entry.avatarColor,
+          transition: `height ${MS.dProgress} ${MS.eOut}`,
+        }} />
+      </div>
+      {/* Text */}
+      <div style={{ flex: 1, minWidth: 0, marginLeft: 10, paddingRight: 4 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1a1a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {entry.title}
+        </div>
+        {total > 0 && (
+          <div style={{ fontSize: 11, color: "#888", marginTop: 1 }}>Task list ({total})</div>
+        )}
+      </div>
+      {/* Checkbox */}
+      <div style={{ paddingRight: 12, flexShrink: 0 }}>
+        <Checkbox checked={isAllDone} onToggle={handleCheckbox} />
+      </div>
+    </div>
+  );
+}
+
 function DesktopDayColumn({
   dayId, currentDay, progressMap, onProgressChange, onSelectEntry, showDivider,
 }: {
@@ -3413,17 +3497,7 @@ function DesktopDayColumn({
           <>
             <span style={{ fontSize: 12, fontWeight: 600, color: "#888" }}>Anytime</span>
             {anytime.map((c) => (
-              <div
-                key={c.id}
-                onClick={(e) => { e.stopPropagation(); onSelectEntry(c.id); }}
-              >
-                <TaskCard
-                  id={c.id} title={c.title} accentColor={c.accentColor}
-                  tasks={c.tasks ?? []} initialDoneMap={c.initialDoneMap}
-                  initialChecked={c.initialChecked}
-                  onProgressChange={onProgressChange}
-                />
-              </div>
+              <DesktopColumnAnytimeCard key={c.id} entry={c} onSelect={onSelectEntry} />
             ))}
           </>
         )}
@@ -3447,22 +3521,13 @@ function DesktopDayColumn({
                 );
               }
               return (
-                <div
+                <DesktopColumnTimedCard
                   key={entry.id}
-                  onClick={(e) => { e.stopPropagation(); onSelectEntry(entry.id); }}
-                  style={{ cursor: "pointer" }}
-                >
-                  <TimedCard
-                    id={entry.id}
-                    title={entry.title}
-                    timeRange={entry.timeRange}
-                    avatarColor={entry.avatarColor}
-                    tasks={entry.tasks}
-                    initialExpanded={false}
-                    noHorizontalMargin={true}
-                    onProgressChange={onProgressChange}
-                  />
-                </div>
+                  entry={entry}
+                  progressMap={progressMap}
+                  onProgressChange={onProgressChange}
+                  onSelect={onSelectEntry}
+                />
               );
             })}
           </>
