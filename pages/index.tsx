@@ -3613,9 +3613,33 @@ function DesktopScreen() {
   }, []);
 
   // ── Unified progress across all days (shared between day + 3-day views) ──
+  // Seeded from DAY_CONTENT initialDoneMap so rings/fills are correct on first render,
+  // without needing cards to mount and report via onProgressChange.
   const [allDayProgress, setAllDayProgress] = useState<
     Record<number, Record<string, { done: number; total: number }>>
-  >({});
+  >(() => {
+    const out: Record<number, Record<string, { done: number; total: number }>> = {};
+    Object.entries(DAY_CONTENT).forEach(([dayIdStr, content]) => {
+      const dayId = Number(dayIdStr);
+      out[dayId] = {};
+      content.anytime.forEach((e) => {
+        const total = e.tasks?.length ?? 0;
+        if (total === 0) {
+          out[dayId][e.id] = { done: e.initialChecked ? 1 : 0, total: 1 };
+        } else {
+          const done = Object.values(e.initialDoneMap ?? {}).filter(Boolean).length;
+          out[dayId][e.id] = { done, total };
+        }
+      });
+      content.planned.forEach((e) => {
+        if (e.kind !== "timed") return;
+        const total = e.tasks?.length ?? 0;
+        const done  = total > 0 ? Object.values(e.initialDoneMap ?? {}).filter(Boolean).length : 0;
+        out[dayId][e.id] = { done, total };
+      });
+    });
+    return out;
+  });
   const [forceSignals, setForceSignals] = useState<Record<string, ForceSignal>>({});
 
   // Only reset force signals + selection on day change; progress persists across days
@@ -3636,6 +3660,14 @@ function DesktopScreen() {
   const onTimelineCheckbox = useCallback((id: string) => {
     const cur     = (allDayProgress[activeDay] ?? {})[id];
     const allDone = cur ? cur.done === cur.total && cur.total > 0 : false;
+    const total   = cur?.total ?? 0;
+    const newDone = allDone ? 0 : total;
+    // Update allDayProgress directly (not relying on TimedCard being mounted)
+    setAllDayProgress((prev) => ({
+      ...prev,
+      [activeDay]: { ...(prev[activeDay] ?? {}), [id]: { done: newDone, total } },
+    }));
+    // Also send force signal so the sidebar TimedCard updates visually if open
     setForceSignals((prev) => ({
       ...prev,
       [id]: { v: (prev[id]?.v ?? 0) + 1, allDone: !allDone },
