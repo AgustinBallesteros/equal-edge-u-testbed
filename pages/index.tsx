@@ -3646,7 +3646,7 @@ function DesktopScreen() {
       >
         <div key={activeDay} className="dt-dissolve">
           {selectedFound ? (
-            <div style={{ marginBottom: 8 }}>
+            <div style={{ marginBottom: 8 }} onClick={(e) => e.stopPropagation()}>
               {selectedFound.kind === "anytime" ? (
                 <TaskCard
                   id={selectedFound.entry.id}
