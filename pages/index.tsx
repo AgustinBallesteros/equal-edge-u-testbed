@@ -1861,6 +1861,7 @@ function ThreeDayView({
   progressMaps,
   progressHandlers,
   onForceSignal,
+  bottomPadding = 100,
 }: {
   start: number; // page-aligned: 1, 4, or 7
   onStartChange: (s: number) => void;
@@ -1868,6 +1869,7 @@ function ThreeDayView({
   progressMaps: Record<number, Record<string, { done: number; total: number }>>;
   progressHandlers: Record<number, (id: string, done: number, total: number) => void>;
   onForceSignal: (dayId: number, cardId: string, allDone: boolean) => void;
+  bottomPadding?: number;
 }) {
   // Tracks what's currently rendered vs. what's animating out
   const [visibleStart, setVisibleStart] = useState(start);
@@ -1905,7 +1907,7 @@ function ThreeDayView({
 
   return (
     <div
-      style={{ position: "relative", overflow: "hidden", paddingBottom: 100 }}
+      style={{ position: "relative", overflow: "hidden", paddingBottom: bottomPadding }}
       onPointerDown={(e) => { swipe.current = { startX: e.clientX, startY: e.clientY, active: true }; }}
       onPointerUp={(e) => {
         if (!swipe.current.active) return;
@@ -2715,6 +2717,7 @@ function DesktopHeader({
   onPrevDay,
   onNextDay,
   onTodayJump,
+  dateLabel,
 }: {
   activeDay: number;
   view: CalendarView;
@@ -2722,6 +2725,7 @@ function DesktopHeader({
   onPrevDay: () => void;
   onNextDay: () => void;
   onTodayJump: () => void;
+  dateLabel?: string;
 }) {
   const [dropOpen, setDropOpen] = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
@@ -2769,11 +2773,11 @@ function DesktopHeader({
 
       {/* Date — keyed so it fades in on every day change */}
       <span
-        key={activeDay}
+        key={dateLabel ?? activeDay}
         className="font-bold dt-header-fade"
         style={{ fontSize: 22, color: "#1a1a1a", whiteSpace: "nowrap" }}
       >
-        {fullDayName} {dayInfo?.num} , April 2026
+        {dateLabel ?? `${fullDayName} ${dayInfo?.num} , April 2026`}
       </span>
 
       {/* Jump-to-today — collapses width + fades when on current day */}
@@ -3222,6 +3226,34 @@ function DesktopScreen() {
     setActiveDay(DAY_IDS[newIdx]);
   };
 
+  // ── 3-day view state ──────────────────────────────────────────────────────
+  const [threeDayStart, setThreeDayStart] = useState<number>(() =>
+    CURRENT_DAY <= 3 ? 1 : CURRENT_DAY <= 6 ? 4 : 7
+  );
+  const [dtProgressMaps, setDtProgressMaps] = useState<
+    Record<number, Record<string, { done: number; total: number }>>
+  >({});
+  const dtProgressHandlers = useMemo(() => {
+    const out: Record<number, (id: string, done: number, total: number) => void> = {};
+    [1, 2, 3, 4, 5, 6, 7].forEach((dayId) => {
+      out[dayId] = (id, done, total) =>
+        setDtProgressMaps((prev) => ({
+          ...prev,
+          [dayId]: { ...(prev[dayId] ?? {}), [id]: { done, total } },
+        }));
+    });
+    return out;
+  }, []);
+
+  // Date label shown in header for 3-day view
+  const dt3Days  = [threeDayStart, threeDayStart + 1, threeDayStart + 2].filter((d) => d >= 1 && d <= 7);
+  const dt3First = WEEK_DAYS.find((d) => d.id === dt3Days[0]);
+  const dt3Last  = WEEK_DAYS.find((d) => d.id === dt3Days[dt3Days.length - 1]);
+  const dt3Label = view === "3day"
+    ? `${dt3First?.fullLabel} ${dt3First?.num} – ${dt3Last?.fullLabel} ${dt3Last?.num}`
+    : undefined;
+
+  // ── Day-view sidebar entries ───────────────────────────────────────────────
   const allTimedEntries = (DAY_CONTENT[activeDay]?.planned ?? [])
     .filter((e): e is TimedEntry => e.kind === "timed");
 
@@ -3259,42 +3291,44 @@ function DesktopScreen() {
         .dt-header-fade { animation: dtHeaderFade 180ms cubic-bezier(0.25,0.46,0.45,0.94) both; }
       `}</style>
 
-      {/* ── Sidebar — 20% ── */}
-      <div
-        id="desktop-sidebar"
-        onClick={() => setSelectedId(null)}
-        style={{
-          width: "20%", flexShrink: 0,
-          background: "#fff",
-          borderRight: "1px solid rgba(0,0,0,0.07)",
-          overflowY: "auto",
-          overflowX: "hidden",
-          padding: "12px 8px 24px",
-          scrollbarWidth: "none",
-        } as React.CSSProperties}
-      >
-        <div key={activeDay} className={`dt-slide-${transitionDir}`}>
-          {sidebarEntries.map((entry) => (
-            <div key={entry.id} style={{ marginBottom: 8 }}>
-              <TimedCard
-                id={entry.id}
-                title={entry.title}
-                timeRange={entry.timeRange}
-                avatarColor={entry.avatarColor}
-                tasks={entry.tasks}
-                initialExpanded={true}
-                noHorizontalMargin={true}
-                onProgressChange={onTimedProgressChange}
-                forceSignal={forceSignals[entry.id]}
-              />
-            </div>
-          ))}
+      {/* ── Sidebar — hidden in 3-day view ── */}
+      {view !== "3day" && (
+        <div
+          id="desktop-sidebar"
+          onClick={() => setSelectedId(null)}
+          style={{
+            width: "20%", flexShrink: 0,
+            background: "#fff",
+            borderRight: "1px solid rgba(0,0,0,0.07)",
+            overflowY: "auto",
+            overflowX: "hidden",
+            padding: "12px 8px 24px",
+            scrollbarWidth: "none",
+          } as React.CSSProperties}
+        >
+          <div key={activeDay} className={`dt-slide-${transitionDir}`}>
+            {sidebarEntries.map((entry) => (
+              <div key={entry.id} style={{ marginBottom: 8 }}>
+                <TimedCard
+                  id={entry.id}
+                  title={entry.title}
+                  timeRange={entry.timeRange}
+                  avatarColor={entry.avatarColor}
+                  tasks={entry.tasks}
+                  initialExpanded={true}
+                  noHorizontalMargin={true}
+                  onProgressChange={onTimedProgressChange}
+                  forceSignal={forceSignals[entry.id]}
+                />
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* ── Main content — 80% ── */}
+      {/* ── Main content ── */}
       <div style={{
-        width: "80%", height: "100%",
+        width: view === "3day" ? "100%" : "80%", height: "100%",
         display: "flex", flexDirection: "column",
         overflow: "hidden",
         position: "relative",
@@ -3303,28 +3337,53 @@ function DesktopScreen() {
           activeDay={activeDay}
           view={view}
           onViewChange={setView}
-          onPrevDay={() => navigateDay(-1)}
-          onNextDay={() => navigateDay(1)}
+          dateLabel={dt3Label}
+          onPrevDay={() => {
+            if (view === "3day") setThreeDayStart((s) => Math.max(1, s - 3));
+            else navigateDay(-1);
+          }}
+          onNextDay={() => {
+            if (view === "3day") setThreeDayStart((s) => Math.min(7, s + 3));
+            else navigateDay(1);
+          }}
           onTodayJump={() => {
-            setTransitionDir(activeDay > CURRENT_DAY ? "right" : "left");
-            setActiveDay(CURRENT_DAY);
+            if (view === "3day") setThreeDayStart(CURRENT_DAY <= 3 ? 1 : CURRENT_DAY <= 6 ? 4 : 7);
+            else {
+              setTransitionDir(activeDay > CURRENT_DAY ? "right" : "left");
+              setActiveDay(CURRENT_DAY);
+            }
           }}
         />
 
-        {/* Keyed wrapper drives the slide animation on day change */}
-        <div
-          key={activeDay}
-          className={`dt-slide-${transitionDir}`}
-          style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}
-        >
-          <DesktopCalendarContent
-            activeDay={activeDay}
-            nowMin={nowMin}
-            onSelectEntry={setSelectedId}
-            timedProgress={timedProgress}
-            onTimelineCheckbox={onTimelineCheckbox}
-          />
-        </div>
+        {view === "3day" ? (
+          /* 3-day view fills the content area and scrolls internally */
+          <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none" } as React.CSSProperties}>
+            <ThreeDayView
+              start={threeDayStart}
+              onStartChange={setThreeDayStart}
+              currentDay={CURRENT_DAY}
+              progressMaps={dtProgressMaps}
+              progressHandlers={dtProgressHandlers}
+              onForceSignal={() => {}}
+              bottomPadding={0}
+            />
+          </div>
+        ) : (
+          /* Day view with slide animation */
+          <div
+            key={activeDay}
+            className={`dt-slide-${transitionDir}`}
+            style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}
+          >
+            <DesktopCalendarContent
+              activeDay={activeDay}
+              nowMin={nowMin}
+              onSelectEntry={setSelectedId}
+              timedProgress={timedProgress}
+              onTimelineCheckbox={onTimelineCheckbox}
+            />
+          </div>
+        )}
 
         {/* FAB */}
         <div
