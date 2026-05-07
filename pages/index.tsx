@@ -440,7 +440,7 @@ function Checkbox({ checked, onToggle }: { checked: boolean; onToggle: () => voi
   );
 }
 
-type ForceSignal = { v: number; allDone: boolean };
+type ForceSignal = { v: number; allDone: boolean; doneMap?: Record<number, boolean> };
 
 function TaskCard({
   id,
@@ -471,16 +471,20 @@ function TaskCard({
   const doneCount = Object.values(doneMap).filter(Boolean).length;
   const allDone   = total > 0 && doneCount === total;
 
-  // Apply external all-done / all-undone signal from 3-day view (version-gated to avoid loops)
+  // Apply external signal — version-gated to avoid loops
   const prevForceV = useRef<number | undefined>(undefined);
   useEffect(() => {
     if (!forceSignal || forceSignal.v === prevForceV.current) return;
     prevForceV.current = forceSignal.v;
-    if (forceSignal.allDone) {
-      if (total === 0) { setSimpleChecked(true); }
-      else { const all: Record<number, boolean> = {}; tasks.forEach((_, i) => { all[i] = true; }); setDoneMap(all); }
+    if (total === 0) {
+      setSimpleChecked(forceSignal.allDone);
+    } else if (forceSignal.doneMap !== undefined) {
+      setDoneMap(forceSignal.doneMap);
+    } else if (forceSignal.allDone) {
+      const all: Record<number, boolean> = {};
+      tasks.forEach((_, i) => { all[i] = true; });
+      setDoneMap(all);
     } else {
-      setSimpleChecked(false);
       setDoneMap({});
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -761,12 +765,14 @@ function TimedCard({
   const doneCount = Object.values(doneMap).filter(Boolean).length;
   const allDone   = total > 0 && doneCount === total;
 
-  // Apply external all-done / all-undone signal from 3-day view (version-gated to avoid loops)
+  // Apply external signal — version-gated to avoid loops
   const prevForceV = useRef<number | undefined>(undefined);
   useEffect(() => {
     if (!forceSignal || forceSignal.v === prevForceV.current) return;
     prevForceV.current = forceSignal.v;
-    if (forceSignal.allDone) {
+    if (forceSignal.doneMap !== undefined) {
+      setDoneMap(forceSignal.doneMap);
+    } else if (forceSignal.allDone) {
       const all: Record<number, boolean> = {};
       tasks.forEach((_, i) => { all[i] = true; });
       setDoneMap(all);
@@ -2622,11 +2628,13 @@ function DashboardScreen({
   height = 852,
   progressMaps,
   progressHandlers,
+  allEntryDoneMaps,
 }: {
   width?: number | string;
   height?: number | string;
   progressMaps: Record<number, Record<string, { done: number; total: number }>>;
   progressHandlers: Record<number, (id: string, done: number, total: number) => void>;
+  allEntryDoneMaps: Record<string, Record<number, boolean>>;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -2662,7 +2670,7 @@ function DashboardScreen({
   >({});
   const forceVersions = useRef<Record<number, Record<string, number>>>({});
 
-  const handleForceSignal = useCallback((dayId: number, cardId: string, allDone: boolean) => {
+  const handleForceSignal = useCallback((dayId: number, cardId: string, allDone: boolean, doneMap?: Record<number, boolean>) => {
     setForceSignals((prev) => {
       const daySignals = prev[dayId] ?? {};
       const dayVersions = (forceVersions.current[dayId] = forceVersions.current[dayId] ?? {});
@@ -2670,10 +2678,73 @@ function DashboardScreen({
       dayVersions[cardId] = nextV;
       return {
         ...prev,
-        [dayId]: { ...daySignals, [cardId]: { v: nextV, allDone } },
+        [dayId]: { ...daySignals, [cardId]: { v: nextV, allDone, doneMap } },
       };
     });
   }, []);
+
+  // ── Desktop → mobile sync ──────────────────────────────────────────────────
+  // allEntryDoneMaps is only written by desktop (sidebar + column checkbox + timeline).
+  // When it changes, push the updated doneMap to mobile cards via forceSignal.
+
+  // Build a stable entry→dayId lookup from DAY_CONTENT
+  const entryDayIdLookup = useMemo<Record<string, number>>(() => {
+    const lookup: Record<string, number> = {};
+    for (const [dayIdStr, content] of Object.entries(DAY_CONTENT)) {
+      const dayId = Number(dayIdStr);
+      for (const e of content.anytime) lookup[e.id] = dayId;
+      for (const e of content.planned) if (e.kind === "timed") lookup[e.id] = dayId;
+    }
+    return lookup;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Build a stable set of no-task entry ids (tasks=[] entries use simpleChecked, not doneMap)
+  const noTaskEntryIds = useMemo<Set<string>>(() => {
+    const set = new Set<string>();
+    for (const content of Object.values(DAY_CONTENT)) {
+      for (const e of content.anytime) {
+        if (!e.tasks || e.tasks.length === 0) set.add(e.id);
+      }
+    }
+    return set;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Watch allEntryDoneMaps (task-based entries): fires only for desktop-originated changes
+  const prevEntryDoneMapsRef = useRef(allEntryDoneMaps);
+  useEffect(() => {
+    const prev = prevEntryDoneMapsRef.current;
+    if (prev === allEntryDoneMaps) return;
+    for (const [entryId, doneMap] of Object.entries(allEntryDoneMaps)) {
+      if (prev[entryId] === doneMap) continue; // same reference → not changed
+      const dayId = entryDayIdLookup[entryId];
+      if (dayId === undefined) continue;
+      const done    = Object.values(doneMap).filter(Boolean).length;
+      const total   = Object.keys(doneMap).length;
+      const allDone = total > 0 && done === total;
+      handleForceSignal(dayId, entryId, allDone, doneMap);
+    }
+    prevEntryDoneMapsRef.current = allEntryDoneMaps;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allEntryDoneMaps]);
+
+  // Watch progressMaps for no-task entries (their doneMap is always {}, so we diff the aggregate)
+  const prevNoTaskProgressRef = useRef<Record<string, { done: number; total: number }>>({});
+  useEffect(() => {
+    for (const [dayIdStr, dayMap] of Object.entries(progressMaps)) {
+      const dayId = Number(dayIdStr);
+      for (const [entryId, { done, total }] of Object.entries(dayMap)) {
+        if (!noTaskEntryIds.has(entryId)) continue;
+        const prev = prevNoTaskProgressRef.current[entryId];
+        if (prev && prev.done === done && prev.total === total) continue;
+        prevNoTaskProgressRef.current[entryId] = { done, total };
+        if (prev === undefined) continue; // skip initial seeding, only react to changes
+        handleForceSignal(dayId, entryId, done > 0);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [progressMaps]);
 
   // Derive a progress value (0–1) for each day from its map
   const fullProgressMap = useMemo(() => {
@@ -3941,7 +4012,16 @@ function DesktopScreen({
       ...prev,
       [id]: { v: (prev[id]?.v ?? 0) + 1, allDone: !allDone },
     }));
-  }, [allDayProgress, activeDay, setAllDayProgress]);
+    // Sync allEntryDoneMaps so mobile cards receive the update via forceSignal
+    const entry = Object.values(DAY_CONTENT)
+      .flatMap((c) => [...c.planned])
+      .find((e): e is TimedEntry => e.kind === "timed" && e.id === id);
+    const taskCount = entry?.tasks?.length ?? 0;
+    const newDoneMap: Record<number, boolean> = !allDone
+      ? Object.fromEntries(Array.from({ length: taskCount }, (_, i) => [i, true]))
+      : {};
+    onEntryDoneMapChange(id, newDoneMap);
+  }, [allDayProgress, activeDay, setAllDayProgress, onEntryDoneMapChange]);
 
   const DAY_IDS = Object.keys(DAY_CONTENT).map(Number).sort((a, b) => a - b);
   const navigateDay = (delta: number) => {
@@ -4405,6 +4485,7 @@ export default function Home() {
               height={isResponsive ? "100%" : h!}
               progressMaps={allDayProgress}
               progressHandlers={allProgressHandlers}
+              allEntryDoneMaps={allEntryDoneMaps}
             />
           )}
         </div>
