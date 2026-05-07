@@ -3683,10 +3683,10 @@ function MonthScheduledRow({ entry, onSelect }: {
 function DesktopMonthCell({
   date, outsideDate, isToday, dayId, progressMap, isLastRow, onSelectEntry,
 }: {
-  date: number | null;       // April date (1–30), or null for padding
-  outsideDate?: number;      // neighboring month date to display when date===null
+  date: number | null;
+  outsideDate?: number;
   isToday: boolean;
-  dayId: number | undefined; // DAY_CONTENT key, if this cell has data
+  dayId: number | undefined;
   progressMap: Record<string, { done: number; total: number }>;
   isLastRow: boolean;
   onSelectEntry: (id: string | null) => void;
@@ -3709,20 +3709,29 @@ function DesktopMonthCell({
   const visible  = allItems.slice(0, MAX_TASKS);
   const overflow = allItems.length - visible.length;
 
-  // Blue dot: day has anytime tasks that are not all fully completed
+  // Separate visible items by type for grouped rendering
+  const visibleAnytime = visible.filter((i): i is { type: "anytime"; entry: TaskEntry }   => i.type === "anytime");
+  const visibleTimed   = visible.filter((i): i is { type: "timed";   entry: TimedEntry }  => i.type === "timed");
+
+  // Blue dot (right of number): day has unfinished anytime tasks
   const hasDueDot = anytime.length > 0 && anytime.some((e) => {
     const p = progressMap[e.id];
     return !p || p.done < p.total;
   });
 
-  const isOutside = date === null;
+  // Ring progress — overall across all tasks in the day
+  const { rDone, rTotal } = Object.values(progressMap).reduce(
+    (acc, e) => ({ rDone: acc.rDone + e.done, rTotal: acc.rTotal + e.total }),
+    { rDone: 0, rTotal: 0 }
+  );
+  const ringProgress = rTotal > 0 ? rDone / rTotal : 0;
+
+  const isOutside   = date === null;
   const displayDate = isOutside ? outsideDate : date;
 
   return (
     <div
       style={{
-        borderRight: "1px solid rgba(0,0,0,0.07)",
-        borderBottom: isLastRow ? "none" : "1px solid rgba(0,0,0,0.07)",
         padding: "8px 8px 10px",
         minHeight: 130,
         background: isToday ? `color-mix(in srgb, ${BLUE} 4%, #fff)` : "#fff",
@@ -3731,40 +3740,58 @@ function DesktopMonthCell({
     >
       {displayDate !== undefined && (
         <>
-          {/* Day number row */}
-          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 4, marginBottom: 5 }}>
+          {/* Day number — centered, ring around it, blue dot to the right */}
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 4, marginBottom: 6 }}>
+            <div style={{ position: "relative", width: 26, height: 26, flexShrink: 0 }}>
+              {!isOutside && <MonthCellRing progress={ringProgress} size={26} />}
+              <div style={{
+                position: "absolute", inset: 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                borderRadius: "50%",
+                background: isToday ? BLUE : "transparent",
+              }}>
+                <span style={{
+                  fontSize: 13,
+                  fontWeight: isToday ? 700 : 500,
+                  color: "#1a1a1a",
+                  lineHeight: 1,
+                }}>
+                  {displayDate}
+                </span>
+              </div>
+            </div>
             {hasDueDot && (
               <div style={{ width: 6, height: 6, borderRadius: "50%", background: BLUE, flexShrink: 0 }} />
             )}
-            <div style={{
-              width: 22, height: 22, borderRadius: "50%",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              background: isToday ? BLUE : "transparent",
-            }}>
-              <span style={{
-                fontSize: 13, fontWeight: isToday ? 700 : 500,
-                color: isToday ? "#fff" : "#1a1a1a",
-                lineHeight: 1,
-              }}>
-                {displayDate}
-              </span>
-            </div>
           </div>
 
           {/* Task rows */}
           {!isOutside && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              {visible.map((item) =>
-                item.type === "anytime" ? (
-                  <MonthAnytimeChip key={item.entry.id} entry={item.entry} onSelect={onSelectEntry} />
-                ) : (
-                  <MonthScheduledRow key={item.entry.id} entry={item.entry} onSelect={onSelectEntry} />
-                )
+            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+              {/* Anytime chips — individual pills */}
+              {visibleAnytime.map((item) => (
+                <MonthAnytimeChip key={item.entry.id} entry={item.entry} onSelect={onSelectEntry} />
+              ))}
+
+              {/* Scheduled tasks — grouped in a white rounded card */}
+              {visibleTimed.length > 0 && (
+                <div style={{
+                  background: "#fff",
+                  borderRadius: 8,
+                  boxShadow: "0 1px 5px rgba(0,0,0,0.09)",
+                  padding: "4px 6px",
+                  display: "flex", flexDirection: "column", gap: 2,
+                }}>
+                  {visibleTimed.map((item) => (
+                    <MonthScheduledRow key={item.entry.id} entry={item.entry} onSelect={onSelectEntry} />
+                  ))}
+                </div>
               )}
+
               {overflow > 0 && (
                 <span style={{
                   fontSize: 11, color: BLUE, fontWeight: 500,
-                  paddingLeft: 2, marginTop: 2,
+                  paddingLeft: 2, marginTop: 1,
                   cursor: "pointer", userSelect: "none",
                 }}>
                   View Day (+{overflow})
@@ -3826,8 +3853,8 @@ function DesktopMonthView({
       }}>
         {DOW_LABELS.map((lbl) => (
           <div key={lbl} style={{
-            textAlign: "center", fontSize: 13, fontWeight: 600,
-            color: "#888", padding: "10px 0",
+            textAlign: "center", fontSize: 14, fontWeight: 600,
+            color: "#444", padding: "10px 0",
           }}>
             {lbl}
           </div>
