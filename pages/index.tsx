@@ -3681,7 +3681,7 @@ function MonthScheduledRow({ entry, onSelect }: {
 
 /** One cell in the month grid */
 function DesktopMonthCell({
-  date, outsideDate, isToday, dayId, progressMap, isLastRow, onSelectEntry,
+  date, outsideDate, isToday, dayId, progressMap, isLastRow, onSelectEntry, onDayNavigate,
 }: {
   date: number | null;
   outsideDate?: number;
@@ -3690,6 +3690,7 @@ function DesktopMonthCell({
   progressMap: Record<string, { done: number; total: number }>;
   isLastRow: boolean;
   onSelectEntry: (id: string | null) => void;
+  onDayNavigate: (dayId: number) => void;
 }) {
   const MAX_TASKS = 5;
 
@@ -3788,12 +3789,15 @@ function DesktopMonthCell({
                 </div>
               )}
 
-              {overflow > 0 && (
-                <span style={{
-                  fontSize: 11, color: BLUE, fontWeight: 500,
-                  paddingLeft: 2, marginTop: 1,
-                  cursor: "pointer", userSelect: "none",
-                }}>
+              {overflow > 0 && dayId && (
+                <span
+                  onClick={(e) => { e.stopPropagation(); onDayNavigate(dayId); }}
+                  style={{
+                    fontSize: 11, color: BLUE, fontWeight: 500,
+                    paddingLeft: 2, marginTop: 1,
+                    cursor: "pointer", userSelect: "none",
+                  }}
+                >
                   View Day (+{overflow})
                 </span>
               )}
@@ -3810,11 +3814,13 @@ function DesktopMonthView({
   currentDay,
   progressMaps,
   onSelectEntry,
+  onDayNavigate,
 }: {
   monthOffset: number;
   currentDay: number;
   progressMaps: Record<number, Record<string, { done: number; total: number }>>;
   onSelectEntry: (id: string | null) => void;
+  onDayNavigate: (dayId: number) => void;
 }) {
   const { daysInMonth, startDow } = getMonthInfo(monthOffset);
   const prevMonthInfo             = getMonthInfo(monthOffset - 1);
@@ -3879,6 +3885,7 @@ function DesktopMonthView({
                   progressMap={dayId ? (progressMaps[dayId] ?? {}) : {}}
                   isLastRow={wi === weeks.length - 1}
                   onSelectEntry={onSelectEntry}
+                  onDayNavigate={onDayNavigate}
                 />
               );
             })}
@@ -4179,6 +4186,7 @@ function DesktopScreen() {
               currentDay={CURRENT_DAY}
               progressMaps={allDayProgress}
               onSelectEntry={setSelectedId}
+              onDayNavigate={(dayId) => { setActiveDay(dayId); setView("day"); }}
             />
           </div>
         ) : view === "3day" ? (
