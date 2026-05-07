@@ -3618,6 +3618,250 @@ function DesktopWeekView({
   );
 }
 
+// ─── Desktop month view ───────────────────────────────────────────────────────
+
+/** Small colored pill chip for anytime tasks in month cells */
+function MonthAnytimeChip({ entry, onSelect }: {
+  entry: TaskEntry;
+  onSelect: (id: string) => void;
+}) {
+  return (
+    <div
+      onClick={(e) => { e.stopPropagation(); onSelect(entry.id); }}
+      style={{
+        display: "flex", alignItems: "center", gap: 5,
+        padding: "3px 7px", borderRadius: 5,
+        background: `color-mix(in srgb, ${entry.accentColor} 18%, #fff)`,
+        cursor: "pointer", userSelect: "none",
+        minWidth: 0,
+      }}
+    >
+      <div style={{ width: 6, height: 6, borderRadius: "50%", background: entry.accentColor, flexShrink: 0 }} />
+      <span style={{
+        fontSize: 11, fontWeight: 600, color: "#1a1a1a",
+        flex: 1, minWidth: 0,
+        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+      }}>
+        {entry.title}
+      </span>
+    </div>
+  );
+}
+
+/** One-line row for scheduled (timed) tasks in month cells */
+function MonthScheduledRow({ entry, onSelect }: {
+  entry: TimedEntry;
+  onSelect: (id: string) => void;
+}) {
+  const startTime = entry.timeRange.split("→")[0].trim();
+  return (
+    <div
+      onClick={(e) => { e.stopPropagation(); onSelect(entry.id); }}
+      style={{
+        display: "flex", alignItems: "center", gap: 5,
+        padding: "2px 2px",
+        cursor: "pointer", userSelect: "none",
+        minWidth: 0,
+      }}
+    >
+      <div style={{ width: 6, height: 6, borderRadius: "50%", background: entry.avatarColor, flexShrink: 0 }} />
+      <span style={{
+        fontSize: 11, fontWeight: 500, color: "#1a1a1a",
+        flex: 1, minWidth: 0,
+        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+      }}>
+        {entry.title}
+      </span>
+      <span style={{ fontSize: 11, color: "#888", flexShrink: 0, marginLeft: 4, whiteSpace: "nowrap" }}>
+        {startTime}
+      </span>
+    </div>
+  );
+}
+
+/** One cell in the month grid */
+function DesktopMonthCell({
+  date, outsideDate, isToday, dayId, progressMap, isLastRow, onSelectEntry,
+}: {
+  date: number | null;       // April date (1–30), or null for padding
+  outsideDate?: number;      // neighboring month date to display when date===null
+  isToday: boolean;
+  dayId: number | undefined; // DAY_CONTENT key, if this cell has data
+  progressMap: Record<string, { done: number; total: number }>;
+  isLastRow: boolean;
+  onSelectEntry: (id: string | null) => void;
+}) {
+  const MAX_TASKS = 5;
+
+  const day        = dayId ? DAY_CONTENT[dayId] : null;
+  const anytime    = day?.anytime ?? [];
+  const timedTasks = (day?.planned ?? []).filter((e): e is TimedEntry => e.kind === "timed");
+
+  type TaskItem =
+    | { type: "anytime"; entry: TaskEntry }
+    | { type: "timed";   entry: TimedEntry };
+
+  const allItems: TaskItem[] = [
+    ...anytime.map((e): TaskItem => ({ type: "anytime", entry: e })),
+    ...timedTasks.map((e): TaskItem => ({ type: "timed", entry: e })),
+  ];
+
+  const visible  = allItems.slice(0, MAX_TASKS);
+  const overflow = allItems.length - visible.length;
+
+  // Blue dot: day has anytime tasks that are not all fully completed
+  const hasDueDot = anytime.length > 0 && anytime.some((e) => {
+    const p = progressMap[e.id];
+    return !p || p.done < p.total;
+  });
+
+  const isOutside = date === null;
+  const displayDate = isOutside ? outsideDate : date;
+
+  return (
+    <div
+      style={{
+        borderRight: "1px solid rgba(0,0,0,0.07)",
+        borderBottom: isLastRow ? "none" : "1px solid rgba(0,0,0,0.07)",
+        padding: "8px 8px 10px",
+        minHeight: 130,
+        background: isToday ? `color-mix(in srgb, ${BLUE} 4%, #fff)` : "#fff",
+        opacity: isOutside ? 0.35 : 1,
+      }}
+    >
+      {displayDate !== undefined && (
+        <>
+          {/* Day number row */}
+          <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 4, marginBottom: 5 }}>
+            {hasDueDot && (
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: BLUE, flexShrink: 0 }} />
+            )}
+            <div style={{
+              width: 22, height: 22, borderRadius: "50%",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              background: isToday ? BLUE : "transparent",
+            }}>
+              <span style={{
+                fontSize: 13, fontWeight: isToday ? 700 : 500,
+                color: isToday ? "#fff" : "#1a1a1a",
+                lineHeight: 1,
+              }}>
+                {displayDate}
+              </span>
+            </div>
+          </div>
+
+          {/* Task rows */}
+          {!isOutside && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              {visible.map((item) =>
+                item.type === "anytime" ? (
+                  <MonthAnytimeChip key={item.entry.id} entry={item.entry} onSelect={onSelectEntry} />
+                ) : (
+                  <MonthScheduledRow key={item.entry.id} entry={item.entry} onSelect={onSelectEntry} />
+                )
+              )}
+              {overflow > 0 && (
+                <span style={{
+                  fontSize: 11, color: BLUE, fontWeight: 500,
+                  paddingLeft: 2, marginTop: 2,
+                  cursor: "pointer", userSelect: "none",
+                }}>
+                  View Day (+{overflow})
+                </span>
+              )}
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function DesktopMonthView({
+  monthOffset,
+  currentDay,
+  progressMaps,
+  onSelectEntry,
+}: {
+  monthOffset: number;
+  currentDay: number;
+  progressMaps: Record<number, Record<string, { done: number; total: number }>>;
+  onSelectEntry: (id: string | null) => void;
+}) {
+  const { daysInMonth, startDow } = getMonthInfo(monthOffset);
+  const prevMonthInfo             = getMonthInfo(monthOffset - 1);
+
+  // Build flat cell list: leading nulls + 1..daysInMonth + trailing nulls
+  const leadingCount  = startDow;            // 0=Sun ... 6=Sat
+  const trailingCount = (7 - ((leadingCount + daysInMonth) % 7)) % 7;
+
+  const cells: Array<{ date: number | null; outsideDate?: number }> = [];
+  for (let i = 0; i < leadingCount; i++) {
+    cells.push({ date: null, outsideDate: prevMonthInfo.daysInMonth - leadingCount + 1 + i });
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    cells.push({ date: d });
+  }
+  for (let i = 1; i <= trailingCount; i++) {
+    cells.push({ date: null, outsideDate: i });
+  }
+
+  const weeks: typeof cells[] = [];
+  for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
+
+  const DOW_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+  return (
+    <div
+      className="dt-dissolve"
+      style={{ display: "flex", flexDirection: "column", height: "100%" }}
+      onClick={() => onSelectEntry(null)}
+    >
+      {/* Day-of-week header row */}
+      <div style={{
+        display: "grid", gridTemplateColumns: "repeat(7, 1fr)",
+        borderBottom: "1px solid rgba(0,0,0,0.08)",
+        flexShrink: 0,
+      }}>
+        {DOW_LABELS.map((lbl) => (
+          <div key={lbl} style={{
+            textAlign: "center", fontSize: 13, fontWeight: 600,
+            color: "#888", padding: "10px 0",
+          }}>
+            {lbl}
+          </div>
+        ))}
+      </div>
+
+      {/* Week rows */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflowY: "auto", scrollbarWidth: "none" }}>
+        {weeks.map((week, wi) => (
+          <div key={wi} style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", flex: 1 }}>
+            {week.map((cell, di) => {
+              const aprilDate = monthOffset === 0 ? cell.date : null;
+              const dayId     = aprilDate !== null ? APRIL_DATE_TO_DAYID[aprilDate] : undefined;
+              const isToday   = monthOffset === 0 && cell.date === MONTH_TODAY_DATE;
+              return (
+                <DesktopMonthCell
+                  key={di}
+                  date={cell.date}
+                  outsideDate={cell.outsideDate}
+                  isToday={isToday}
+                  dayId={dayId}
+                  progressMap={dayId ? (progressMaps[dayId] ?? {}) : {}}
+                  isLastRow={wi === weeks.length - 1}
+                  onSelectEntry={onSelectEntry}
+                />
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ─── Desktop screen ───────────────────────────────────────────────────────────
 
 function DesktopScreen() {
@@ -3729,6 +3973,10 @@ function DesktopScreen() {
   // ── 3-day view ────────────────────────────────────────────────────────────
   // Page starts: 2→[Apr2,3,4]  5→[Apr5,6,7 current]  8→[Apr8,9,10]
   const [threeDayStart, setThreeDayStart] = useState<number>(5);
+
+  // ── Month view ─────────────────────────────────────────────────────────────
+  const [monthOffset, setMonthOffset] = useState<number>(0);
+  const { monthName: monthViewName, yearStr: monthViewYear } = getMonthInfo(monthOffset);
   const dtProgressHandlers = useMemo(() => {
     const out: Record<number, (id: string, done: number, total: number) => void> = {};
     [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].forEach((dayId) => {
@@ -3744,6 +3992,7 @@ function DesktopScreen() {
   const dt3Days       = [threeDayStart, threeDayStart + 1, threeDayStart + 2].filter((d) => d >= 1 && d <= 10);
   const showTodayBtn  = view === "3day"   ? !dt3Days.includes(CURRENT_DAY)
                       : view === "week"   ? false
+                      : view === "month"  ? monthOffset !== 0
                       : activeDay !== CURRENT_DAY;
 
   // ── Sidebar entries ────────────────────────────────────────────────────────
@@ -3871,25 +4120,41 @@ function DesktopScreen() {
           activeDay={activeDay}
           view={view}
           onViewChange={setView}
-          dateLabel={(view === "3day" || view === "week") ? "April 2026" : undefined}
+          dateLabel={
+            view === "3day" || view === "week" ? "April 2026"
+            : view === "month" ? `${monthViewName} ${monthViewYear}`
+            : undefined
+          }
           showTodayBtn={showTodayBtn}
           onPrevDay={() => {
-            if (view === "3day") setThreeDayStart((s) => s === 5 ? 2 : s === 8 ? 5 : s);
-            else if (view === "week") { /* single week, no-op */ }
+            if (view === "3day")  setThreeDayStart((s) => s === 5 ? 2 : s === 8 ? 5 : s);
+            else if (view === "week")  { /* single week, no-op */ }
+            else if (view === "month") setMonthOffset((o) => o - 1);
             else navigateDay(-1);
           }}
           onNextDay={() => {
-            if (view === "3day") setThreeDayStart((s) => s === 2 ? 5 : s === 5 ? 8 : s);
-            else if (view === "week") { /* single week, no-op */ }
+            if (view === "3day")  setThreeDayStart((s) => s === 2 ? 5 : s === 5 ? 8 : s);
+            else if (view === "week")  { /* single week, no-op */ }
+            else if (view === "month") setMonthOffset((o) => o + 1);
             else navigateDay(1);
           }}
           onTodayJump={() => {
-            if (view === "3day") setThreeDayStart(5);
+            if (view === "3day")  setThreeDayStart(5);
+            else if (view === "month") setMonthOffset(0);
             else setActiveDay(CURRENT_DAY);
           }}
         />
 
-        {view === "3day" ? (
+        {view === "month" ? (
+          <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+            <DesktopMonthView
+              monthOffset={monthOffset}
+              currentDay={CURRENT_DAY}
+              progressMaps={allDayProgress}
+              onSelectEntry={setSelectedId}
+            />
+          </div>
+        ) : view === "3day" ? (
           <div style={{ flex: 1, overflowY: "auto", scrollbarWidth: "none" } as React.CSSProperties}>
             <DesktopThreeDayView
               start={threeDayStart}
