@@ -1,7 +1,7 @@
-# Equal Edge U — Screen Testbed
+# cognativ-testbed — Screen Testbed
 
 ## What this is
-A Next.js 16 prototype testbed for building and previewing Equal Edge app screens. It provides a pixel-accurate viewport shell with a floating dev menu — no routing, no backend, no state management overhead. You drop a screen component in, it renders inside the correct device frame.
+A Next.js 16 prototype testbed for building and previewing app screens. It provides a pixel-accurate viewport shell with a floating dev menu — no routing, no backend, no state management overhead. You drop a screen component in, it renders inside the correct device frame.
 
 ## Stack
 - Next.js 16.2.1 (Pages Router, Turbopack)

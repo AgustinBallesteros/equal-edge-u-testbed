@@ -1,40 +1,118 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/pages/api-reference/create-next-app).
+# cognativ-testbed
 
-## Getting Started
+A lightweight Next.js prototype testbed for building and previewing app screens at pixel-accurate dimensions. Drop a component in, see it inside the right device frame immediately — no routing, no backend, no state management overhead.
 
-First, run the development server:
+## What it does
+
+- **Viewport shell** — renders your screen component inside a device frame (iPhone 17 Pro Max, Android Large, Responsive, or full Desktop)
+- **Floating dev menu** — toggle platform, switch viewport presets, and fine-tune zoom scale without touching code
+- **Motion system** — a set of pre-built CSS animation classes (`ms-enter`, `ms-btn`, `ms-checkbox`, etc.) ready to apply
+- **Clean starting point** — one file to edit, zero opinions about your screen's architecture
+
+## Stack
+
+| | |
+|---|---|
+| Framework | Next.js 16.2.1 (Pages Router, Turbopack) |
+| Language | TypeScript 5 |
+| UI | React 19 |
+| Styling | Tailwind CSS 4 + inline styles |
+| Font | Inter via `next/font/google` |
+
+## Getting started
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/AgustinBallesteros/equal-edge-u-testbed.git
+cd cognativ-testbed
+npm install
+npm run dev        # → http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Adding a screen
 
-You can start editing the page by modifying `pages/index.tsx`. The page auto-updates as you edit the file.
+Open `pages/index.tsx`. Find the placeholder inside the viewport frame:
 
-[API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.ts`.
+```tsx
+{/* ── Drop your screen component here ── */}
+<span style={{ color: "#ccc", fontSize: 13, fontFamily: "var(--font-inter)" }}>
+  {isDesktop ? "Desktop" : "Mobile"} — add your screen here
+</span>
+```
 
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/pages/building-your-application/routing/api-routes) instead of React pages.
+Replace it with your component:
 
-This project uses [`next/font`](https://nextjs.org/docs/pages/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```tsx
+{isDesktop ? <DesktopScreen /> : <MobileScreen />}
+```
 
-## Learn More
+Define `MobileScreen` and `DesktopScreen` in the same file (preferred for prototyping), or import from `components/`. Your component should fill `100% × 100%` of its parent — the frame handles dimensions.
 
-To learn more about Next.js, take a look at the following resources:
+## Dev menu
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn-pages-router) - an interactive Next.js tutorial.
+The floating **⊞** button (top-left) controls:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Control | What it does |
+|---|---|
+| **Platform** | Toggle Mobile / Desktop. Desktop fills the full window. |
+| **Viewport** (mobile) | iPhone 17 Pro Max (440×956), Android Large (412×917), Responsive |
+| **Scale** | Manual zoom for mobile frames. Auto-fits on load. |
 
-## Deploy on Vercel
+Tap-and-hold the button to drag it anywhere. Double-tap to reset to origin.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Key variables (available in `Home`)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/pages/building-your-application/deploying) for more details.
+```ts
+isDesktop    // boolean — true when Platform = Desktop
+isResponsive // boolean — true when Viewport = Responsive
+platform     // "mobile" | "desktop"
+preset       // active viewport preset key
+scale        // current zoom (0.3–1.0)
+w, h         // viewport dimensions in px (null when desktop/responsive)
+```
+
+## Design tokens
+
+```ts
+const BLUE = "#558BF7";   // primary accent — swap for your project color
+
+const MS = {
+  dFast: "150ms",
+  eOut:  "cubic-bezier(0.25, 0.46, 0.45, 0.94)",
+} as const;
+```
+
+The full motion token set lives in `styles/motion-system.css` as CSS custom properties.
+
+## Motion classes
+
+Apply directly to elements, all prefixed `ms-`:
+
+| Class | Effect |
+|---|---|
+| `ms-enter` | Fade-up entrance |
+| `ms-enter-fade` | Fade-only entrance |
+| `ms-btn` | Press scale feedback |
+| `ms-btn-icon` | Tighter press scale (icons) |
+| `ms-progress-linear` | Animated linear progress bar |
+| `ms-progress-circular` | SVG circular progress |
+| `ms-checkbox` | Animated checkbox (stroke-dashoffset) |
+| `no-scrollbar` | Hides scrollbar |
+
+Use `data-stagger="N"` (0–7) on `ms-enter` elements for staggered entrances.
+
+## Conventions
+
+- **Single-file preferred** — keep all components in `pages/index.tsx` unless it exceeds ~1000 lines, then split into `components/<ScreenName>.tsx`
+- **Inline styles for layout** — use Tailwind for typography utilities, inline styles for positioning and custom values
+- **No data fetching** — mock all data as local constants or in `data/mock.ts`
+- **No routing** — simulate navigation with local state
+- **TypeScript strict** — all props typed, no `any` unless unavoidable
+
+## Lint / type-check
+
+```bash
+npx tsc --noEmit            # type check
+npx eslint pages/index.tsx  # lint
+```
+
+Both should return clean before committing.
